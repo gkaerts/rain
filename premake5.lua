@@ -55,6 +55,10 @@ workspace "rain"
         include "contrib/projects/vulkan"
     end
 
+    if BUILD_PROPERTIES.IncludeTestsInBuild then
+        include "contrib/projects/googletest"
+    end
+
     -- Projects
     include "contrib/projects/spdlog"
     include "contrib/projects/enkiTS"

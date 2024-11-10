@@ -6,14 +6,16 @@ project "enkiTS"
     flags {
         "MultiProcessorCompile"
     }
-    
+
+    local project_dir = "../submodules/enkiTS"
+    local source_dir = project_dir .. "/src"
     files {
-        "src/**.cpp",
-        "src/**.h"
+        source_dir .. "/**.cpp",
+        source_dir .. "/**.h"
     }
     
     includedirs {
-        "src"
+        source_dir
     }
     
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
