@@ -4,17 +4,29 @@
 
 #define RN_DEFINE_HANDLE(name, salt) enum class name : uint64_t { \
         Invalid = 0, \
-        Salt = (uint64_t(salt) << 56), \
-        SaltMask = uint64_t(0xFF) << 56, \
-        GenerationMask = uint64_t(0xFFFF) << 40, \
+        SaltStart = 56, \
+        GenerationStart = 48, \
+        Salt = (uint64_t(salt) << SaltStart), \
+        SaltMask = uint64_t(0xFF) << SaltStart, \
+        GenerationMask = uint64_t(0xFF) << GenerationStart, \
+        IndexMask = ~(SaltMask | GenerationMask) };
+
+#define RN_DEFINE_SLIM_HANDLE(name, salt) enum class name : uint32_t { \
+        Invalid = 0, \
+        SaltStart = 24, \
+        GenerationStart = 20, \
+        Salt = (uint32_t(salt) << SaltStart), \
+        SaltMask = uint32_t(0xFF) << SaltStart, \
+        GenerationMask = uint32_t(0xF) << GenerationStart, \
         IndexMask = ~(SaltMask | GenerationMask) };
 
 #define RN_HANDLE(name) enum class name : uint64_t;
+#define RN_SLIM_HANDLE(name) enum class name : uint32_t;
 
 namespace rn
 {
-    template <typename HandleType> bool IsValid(HandleType h) { return (h != HandleType::Invalid) && (HandleType(uint64_t(h) & uint64_t(HandleType::SaltMask)) == HandleType::Salt); }
-    template <typename HandleType> uint64_t IndexFromHandle(HandleType h) { return (uint64_t(h) & uint64_t(HandleType::IndexMask)); }
-    template <typename HandleType> uint16_t GenerationFromHandle(HandleType h) { return uint16_t((uint64_t(h) & uint64_t(HandleType::GenerationMask)) >> 40); }
-    template <typename HandleType> HandleType AssembleHandle(uint64_t index, uint8_t generation) { return HandleType(uint64_t(HandleType::Salt) | (uint64_t(generation) << 40) | (index & uint64_t(HandleType::IndexMask))); }
+    template <typename HandleType> bool IsValid(HandleType h) { return (h != HandleType::Invalid) && (HandleType(std::underlying_type_t<HandleType>(h) & std::underlying_type_t<HandleType>(HandleType::SaltMask)) == HandleType::Salt); }
+    template <typename HandleType> std::underlying_type_t<HandleType> IndexFromHandle(HandleType h) { return (std::underlying_type_t<HandleType>(h) & std::underlying_type_t<HandleType>(HandleType::IndexMask)); }
+    template <typename HandleType> uint8_t GenerationFromHandle(HandleType h) { return uint8_t((std::underlying_type_t<HandleType>(h) & std::underlying_type_t<HandleType>(HandleType::GenerationMask)) >> std::underlying_type_t<HandleType>(HandleType::GenerationStart)); }
+    template <typename HandleType> HandleType AssembleHandle(std::underlying_type_t<HandleType> index, uint8_t generation) { return HandleType(std::underlying_type_t<HandleType>(HandleType::Salt) | (std::underlying_type_t<HandleType>(generation) << std::underlying_type_t<HandleType>(HandleType::GenerationStart)) | (index & std::underlying_type_t<HandleType>(HandleType::IndexMask))); }
 }
