@@ -20,6 +20,7 @@
 #endif
 
 #define RN_ASSERT(x) if (!(x)) { std::printf("ASSERT FAILED: %s", #x); RN_DEBUG_BREAK(); }
+#define RN_NOT_IMPLEMENTED() { std::printf("%s is not implemented!", __func__); RN_DEBUG_BREAK(); }
 
 #define RN_MATCH_ENUM_AND_ARRAY(arrayName, enumName) static_assert(sizeof(arrayName) / sizeof(arrayName[0]) == static_cast<size_t>(enumName::Count));
 #define RN_ARRAY_SIZE(arrayName) (sizeof(arrayName) / sizeof(arrayName[0]))

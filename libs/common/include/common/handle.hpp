@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/common.hpp"
+#include <type_traits>
 
 #define RN_DEFINE_HANDLE(name, salt) enum class name : uint64_t { \
         Invalid = 0, \
