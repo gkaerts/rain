@@ -1,0 +1,12 @@
+[submodule "contrib/submodules/googletest"]
+	path = contrib/submodules/googletest
+	url = https://github.com/google/googletest
+[submodule "contrib/submodules/spdlog"]
+	path = contrib/submodules/spdlog
+	url = https://github.com/gabime/spdlog
+[submodule "contrib/submodules/unordered_dense"]
+	path = contrib/submodules/unordered_dense
+	url = https://github.com/martinus/unordered_dense
+[submodule "contrib/submodules/enkiTS"]
+	path = contrib/submodules/enkiTS
+	url = https://github.com/dougbinks/enkiTS

@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "WindowsDev",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "windows-msvc-x64",
+            "cStandard": "c17",
+            "defines": [
+                "RN_PLATFORM_WINDOWS"
+            ],
+            "includePath": [
+                "${workspaceFolder}/**"
+            ]
+        }
+    ],
+    "version": 4
+}
