@@ -10,3 +10,6 @@
 [submodule "contrib/submodules/enkiTS"]
 	path = contrib/submodules/enkiTS
 	url = https://github.com/dougbinks/enkiTS
+[submodule "contrib/submodules/hlslpp"]
+	path = contrib/submodules/hlslpp
+	url = https://github.com/redorav/hlslpp

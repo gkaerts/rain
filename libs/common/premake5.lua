@@ -21,7 +21,8 @@ project "rnCommon"
         "include",
         "../../contrib/submodules/spdlog/include",
         "../../contrib/submodules/unordered_dense/include",
-        "../../contrib/submodules/enkiTS/src"
+        "../../contrib/submodules/enkiTS/src",
+        "../../contrib/submodules/hlslpp/include",
     }
 
     libdirs {
