@@ -5,6 +5,7 @@ struct IDXGIAdapter4;
 
 struct ID3D12Device10;
 struct ID3D12Debug3;
+struct ID3D12CommandQueue;
 
 struct ID3D12RootSignature;
 struct ID3D12PipelineState;

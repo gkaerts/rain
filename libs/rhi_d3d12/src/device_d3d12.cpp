@@ -177,6 +177,18 @@ namespace rn::rhi
                 .hasMemorylessAllocations = false
             };
         }
+
+        ID3D12CommandQueue* CreateGraphicsQueue(ID3D12Device10* device)
+        {
+            D3D12_COMMAND_QUEUE_DESC desc = {
+                .Type = D3D12_COMMAND_LIST_TYPE_DIRECT,
+            };
+
+            ID3D12CommandQueue* queue = nullptr;
+            RN_ASSERT(SUCCEEDED(device->CreateCommandQueue(&desc, __uuidof(ID3D12CommandQueue), (void**)&queue)));
+
+            return queue;
+        }
     }
 
     DeviceD3D12::DeviceD3D12(const DeviceD3D12Options& options, const DeviceMemorySettings& memorySettings)
@@ -211,6 +223,8 @@ namespace rn::rhi
         _samplerDescriptorHeap.InitAsSamplerHeap(_d3dDevice);
         _rtvDescriptorHeap.InitAsRTVHeap(_d3dDevice);
         _dsvDescriptorHeap.InitAsDSVHeap(_d3dDevice);
+
+        _graphicsQueue = CreateGraphicsQueue(_d3dDevice);
     }
 
     namespace
@@ -228,6 +242,7 @@ namespace rn::rhi
 
     DeviceD3D12::~DeviceD3D12()
     {
+        SafeRelease(_graphicsQueue);
         SafeRelease(_rtLocalRootSignature);
         SafeRelease(_bindlessRootSignature);
         SafeRelease(_d3dDevice);

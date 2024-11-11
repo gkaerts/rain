@@ -171,5 +171,7 @@ namespace rn::rhi
         DescriptorHeap _samplerDescriptorHeap;
         DescriptorHeap _rtvDescriptorHeap;
         DescriptorHeap _dsvDescriptorHeap;    
+
+        ID3D12CommandQueue* _graphicsQueue = nullptr;
     };
 }
