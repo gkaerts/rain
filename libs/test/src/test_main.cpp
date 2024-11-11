@@ -1,5 +1,4 @@
 #include "gtest/gtest.h"
-
 #include "common/memory/memory.hpp"
 
 struct TestingSetup

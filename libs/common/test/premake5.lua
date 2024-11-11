@@ -7,7 +7,8 @@ project "commonTests"
 
     files {
         "src/**.hpp",
-        "src/**.cpp"
+        "src/**.cpp",
+        "../../../libs/test/src/test_main.cpp",
     }
 
     includedirs {
