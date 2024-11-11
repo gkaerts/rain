@@ -1,7 +1,9 @@
 #include "rhi/device.hpp"
+#include "common/memory/memory.hpp"
 
 namespace rn::rhi
 {
+    RN_DEFINE_MEMORY_CATEGORY(RHI)
     DeviceMemorySettings DefaultDeviceMemorySettings()
     {
         return {
@@ -17,5 +19,9 @@ namespace rn::rhi
         };
     }
 
-    
+    void DestroyDevice(Device* device)
+    {
+        TrackedDelete(device);
+    }
+
 }

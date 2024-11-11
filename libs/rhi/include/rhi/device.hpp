@@ -2,14 +2,13 @@
 
 #include "common/common.hpp"
 
-
 #include "rhi/handles.hpp"
 #include "rhi/pipeline.hpp"
 #include "rhi/resource.hpp"
 
 namespace rn
 {
-    enum class MemoryCategoryID : uint32_t;
+    enum class MemoryCategoryID : uint8_t;
 }
 
 namespace rn::rhi
@@ -30,7 +29,7 @@ namespace rn::rhi
 
     DeviceMemorySettings DefaultDeviceMemorySettings();
 
-    struct DeviceCapabilities
+    struct DeviceCaps
     {
         bool hasHardwareRaytracing : 1;
         bool hasVariableRateShading : 1;
@@ -45,7 +44,7 @@ namespace rn::rhi
 
         virtual ~Device() {}
 
-        virtual DeviceCapabilities      Capabilities() = 0;
+        virtual DeviceCaps              Capabilities() const = 0;
 
         // Pipeline API
         virtual RasterPipeline          CreateRasterPipeline(const VertexRasterPipelineDesc& desc) { RN_NOT_IMPLEMENTED(); return RasterPipeline::Invalid; }
@@ -59,7 +58,7 @@ namespace rn::rhi
 
 
         // Resource API
-        virtual GPUAllocation           GPUAlloc(uint64_t sizeInBytes, GPUAllocationFlags flags, MemoryCategoryID cat) { RN_NOT_IMPLEMENTED(); return GPUAllocation::Invalid; }
+        virtual GPUAllocation           GPUAlloc(MemoryCategoryID cat, uint64_t sizeInBytes, GPUAllocationFlags flags) { RN_NOT_IMPLEMENTED(); return GPUAllocation::Invalid; }
         virtual void                    GPUFree(GPUAllocation allocation) { RN_NOT_IMPLEMENTED(); }
 
         virtual Buffer                  CreateBuffer(const BufferDesc& desc, const GPUMemoryRegion& region) { RN_NOT_IMPLEMENTED(); return Buffer::Invalid; }
@@ -112,6 +111,8 @@ namespace rn::rhi
         virtual uint64_t                CalculateMipUploadDescs(const Texture3DDesc& desc, std::span<MipUploadDesc> outMipUploadDescs) { RN_NOT_IMPLEMENTED(); return 0; }
 
         virtual ResourceFootprint       CalculateTLASInstanceBufferFootprint(uint32_t instanceCount) { RN_NOT_IMPLEMENTED(); return {}; }
-        virtual void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, std::span<char*> destData) { RN_NOT_IMPLEMENTED(); }
+        virtual void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, std::span<unsigned char*> destData) { RN_NOT_IMPLEMENTED(); }
     };
+
+    void DestroyDevice(Device* device);
 }

@@ -11,6 +11,8 @@ namespace rn::rhi
     enum class DepthFormat : uint32_t;
     enum class RenderTargetFormat : uint32_t;
 
+    using ShaderBytecode = std::span<const uint8_t>;
+
     enum class RasterizerState : uint32_t
     {
         SolidBackFaceCull,
@@ -53,8 +55,6 @@ namespace rn::rhi
         RequiresInputLayoutForDrawID = 0x01
     };
     RN_DEFINE_ENUM_CLASS_BITWISE_API(RasterPipelineFlags)
-
-    using ShaderBytecode = std::span<const char>;
 
     struct VertexRasterPipelineDesc
     {

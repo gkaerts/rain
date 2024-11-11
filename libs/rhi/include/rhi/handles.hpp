@@ -3,7 +3,7 @@
 
 #include "common/handle.hpp"
     
-namespace rn
+namespace rn::rhi
 {
     // Pipeline API handles
     RN_DEFINE_HANDLE(RasterPipeline, 0x01)

@@ -176,11 +176,11 @@ namespace rn::rhi
         TextureCreationFlags flags;
         uint32_t width;
 		uint32_t height;
-		uint32_t arraySize;
+        uint32_t depth;
 		uint32_t mipLevels;
 		TextureFormat format;
 		const ClearValue* optClearValue;
-		const char* nam;
+		const char* name;
     };
 
     struct RenderTargetViewDesc

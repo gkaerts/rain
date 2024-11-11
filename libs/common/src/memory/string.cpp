@@ -5,6 +5,7 @@
 
 namespace rn
 {
+    RN_DEFINE_MEMORY_CATEGORY(String)
     namespace
     {
         constexpr const uint32_t StringHash_SEED = 0xAE83B98E;
