@@ -189,6 +189,14 @@ namespace rn::rhi
             cpuHandle);
     }
 
+    D3D12_CPU_DESCRIPTOR_HANDLE DescriptorHeap::Resolve(ResourceDescriptor descriptor) const
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE handle = _heap->GetCPUDescriptorHandleForHeapStart();
+        handle.ptr += uint32_t(descriptor) * _descriptorSizeInBytes;
+        
+        return handle;
+    }
+
     namespace
     {
         constexpr const D3D12_HEAP_DESC HeapDescFromAllocationFlags(uint64_t sizeInBytes, bool isUMA,  GPUAllocationFlags flags)
@@ -1425,4 +1433,52 @@ namespace rn::rhi
             ++instanceIdx;
         }
     }
+
+    ID3D12PipelineState* DeviceD3D12::Resolve(RasterPipeline pipeline) const
+    {
+        return _rasterPipelines.GetHot(pipeline);
+    }
+
+    ID3D12PipelineState* DeviceD3D12::Resolve(ComputePipeline pipeline) const
+    {
+        return _computePipelines.GetHot(pipeline);
+    }
+
+    ID3D12StateObject* DeviceD3D12::Resolve(RTPipeline pipeline) const
+    {
+        return _rtPipelines.GetHot(pipeline);
+    }
+
+    RasterPipelineData DeviceD3D12::ResolveAdditionalData(RasterPipeline pipeline) const
+    {
+        return _rasterPipelines.GetCold(pipeline);
+    }
+
+
+    ID3D12Resource* DeviceD3D12::Resolve(Buffer buffer) const
+    {
+        return _buffers.GetHot(buffer);
+    }
+
+    ID3D12Resource* DeviceD3D12::Resolve(Texture2D texture) const
+    {
+        return _texture2Ds.GetHot(texture);
+    }
+
+    ID3D12Resource* DeviceD3D12::Resolve(Texture3D texture) const
+    {
+        return _texture3Ds.GetHot(texture);
+    }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE DeviceD3D12::Resolve(RenderTargetView view) const
+    {
+        return _rtvDescriptorHeap.Resolve(ResourceDescriptor(IndexFromHandle(view)));
+    }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE DeviceD3D12::Resolve(DepthStencilView view) const
+    {
+        return _dsvDescriptorHeap.Resolve(ResourceDescriptor(IndexFromHandle(view)));
+    }
+
+
 }

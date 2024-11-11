@@ -21,6 +21,17 @@ namespace rn::rhi
     class DeviceD3D12;
     struct DeviceD3D12Options;
 
+    enum class CommandSignatureType
+    {
+        Draw,
+        DrawIndexed,
+        Dispatch,
+        DispatchMesh,
+        DispatchRays,
+
+        Count
+    };
+
     struct RasterPipelineData
     {
         TopologyType topology;
@@ -140,6 +151,22 @@ namespace rn::rhi
         ResourceFootprint       CalculateTLASInstanceBufferFootprint(uint32_t instanceCount) override;
         void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, std::span<unsigned char*> destData) override;
 
+
+        ID3D12PipelineState*        Resolve(RasterPipeline pipeline) const;
+        ID3D12PipelineState*        Resolve(ComputePipeline pipeline) const;
+        ID3D12StateObject*          Resolve(RTPipeline pipeline) const;
+
+        RasterPipelineData          ResolveAdditionalData(RasterPipeline pipeline) const;
+
+        ID3D12Resource*             Resolve(Buffer buffer) const;
+        ID3D12Resource*             Resolve(Texture2D texture) const;
+        ID3D12Resource*             Resolve(Texture3D texture) const;
+
+        D3D12_CPU_DESCRIPTOR_HANDLE Resolve(RenderTargetView view) const;
+        D3D12_CPU_DESCRIPTOR_HANDLE Resolve(DepthStencilView view) const;
+
+        ID3D12CommandSignature*     CommandSignature(CommandSignatureType type) const { return _commandSignatures[int(type)]; }
+
     private:
 
         void QueueFrameFinalizerAction(FnOnFinalize fn, void* data);
@@ -173,5 +200,6 @@ namespace rn::rhi
         DescriptorHeap _dsvDescriptorHeap;    
 
         ID3D12CommandQueue* _graphicsQueue = nullptr;
+        ID3D12CommandSignature* _commandSignatures[int(CommandSignatureType::Count)] = {};
     };
 }

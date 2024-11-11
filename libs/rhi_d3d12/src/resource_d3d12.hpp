@@ -3,7 +3,7 @@
 #include "common/common.hpp"
 #include "common/memory/index_allocator.hpp"
 
-#include "d3d12_fwd.hpp"
+#include "d3d12.h"
 
 namespace rn::rhi
 {
@@ -39,6 +39,8 @@ namespace rn::rhi
         void FillDescriptor(ID3D12Device10* device, ResourceDescriptor descriptor, ID3D12Resource* resource, const D3D12_RENDER_TARGET_VIEW_DESC& desc);
         void FillDescriptor(ID3D12Device10* device, ResourceDescriptor descriptor, ID3D12Resource* resource, const D3D12_DEPTH_STENCIL_VIEW_DESC& desc);
         void FillDescriptor(ID3D12Device10* device, ResourceDescriptor descriptor, const D3D12_SAMPLER_DESC& desc);
+
+        D3D12_CPU_DESCRIPTOR_HANDLE Resolve(ResourceDescriptor descriptor) const;
 
     private:
 

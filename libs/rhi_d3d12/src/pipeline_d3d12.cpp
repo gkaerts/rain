@@ -478,32 +478,32 @@ namespace rn::rhi
         };
 
         uint32_t shaderConfigIdx = uint32_t(subObjects.size());
-        subObjects.emplace_back(D3D12_STATE_SUBOBJECT({
+        subObjects.push_back({
             .Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG,
             .pDesc = &shaderConfig,
-        }));
+        });
 
         // Pipeline Config
         D3D12_RAYTRACING_PIPELINE_CONFIG pipelineConfig = {
             .MaxTraceRecursionDepth = desc.maxRecursionDepth
         };
-        subObjects.emplace_back(D3D12_STATE_SUBOBJECT({
+        subObjects.push_back({
             .Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG,
             .pDesc = &pipelineConfig,
-        }));
+        });
 
         // Global root signature
-        subObjects.emplace_back(D3D12_STATE_SUBOBJECT({
+        subObjects.push_back({
             .Type = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE,
             .pDesc = &_bindlessRootSignature,
-        }));
+        });
 
         // Local root signature
         uint32_t localRootsigIdx = uint32_t(subObjects.size());
-        subObjects.emplace_back(D3D12_STATE_SUBOBJECT({
+        subObjects.push_back({
             .Type = D3D12_STATE_SUBOBJECT_TYPE_LOCAL_ROOT_SIGNATURE,
             .pDesc = &_rtLocalRootSignature,
-        }));
+        });
 
         // Ray gen and miss library
         uint32_t rayGenAndMissExportStartIdx = uint32_t(exports.size());
@@ -511,10 +511,10 @@ namespace rn::rhi
         if (desc.rayGenExport)
         {
             WString& exportName = exportNames.emplace_back(ToWString(desc.rayGenExport));
-            exports.emplace_back(D3D12_EXPORT_DESC({
+            exports.push_back({
                 .Name = exportName.c_str(),
                 .Flags = D3D12_EXPORT_FLAG_NONE
-            }));
+            });
 
             ++numRaygenMissExports;
         }
@@ -522,10 +522,10 @@ namespace rn::rhi
         for (const char* missExport : desc.missExports)
         {
             WString& exportName = exportNames.emplace_back(ToWString(missExport));
-            exports.emplace_back(D3D12_EXPORT_DESC({
+            exports.push_back({
                 .Name = exportName.c_str(),
                 .Flags = D3D12_EXPORT_FLAG_NONE
-            }));
+            });
         }
 
         D3D12_DXIL_LIBRARY_DESC rayGenMissLibrary = {
@@ -534,10 +534,10 @@ namespace rn::rhi
             .pExports = &exports[rayGenAndMissExportStartIdx],
         };
 
-        subObjects.emplace_back(D3D12_STATE_SUBOBJECT({
+        subObjects.push_back({
             .Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY,
             .pDesc = &rayGenMissLibrary,
-        }));
+        });
 
         // Hit groups
         for (const RTHitGroupDesc& hitGroup : desc.hitGroups)
@@ -551,10 +551,10 @@ namespace rn::rhi
             if (hitGroup.anyHitExport)
             {
                 WString& exportName = exportNames.emplace_back(ToWString(hitGroup.anyHitExport));
-                exports.emplace_back(D3D12_EXPORT_DESC({
+                exports.push_back({
                     .Name = exportName.c_str(),
                     .Flags = D3D12_EXPORT_FLAG_NONE
-                }));
+                });
 
                 anyHitExportName = exportName.c_str();
                 ++numExports;
@@ -563,46 +563,46 @@ namespace rn::rhi
             if (hitGroup.closestHitExport)
             {
                 WString& exportName = exportNames.emplace_back(ToWString(hitGroup.closestHitExport));
-                exports.emplace_back(D3D12_EXPORT_DESC({
+                exports.push_back({
                     .Name = exportName.c_str(),
                     .Flags = D3D12_EXPORT_FLAG_NONE
-                }));
+                });
 
                 closestHitExportName = exportName.c_str();
                 ++numExports;
             }
 
-            hitGroupLibraries.emplace_back(D3D12_DXIL_LIBRARY_DESC({
+            hitGroupLibraries.push_back({
                 .DXILLibrary = ToShaderBytecode(hitGroup.library),
                 .NumExports = numExports,
                 .pExports = &exports[hitGroupExportStartIdx],
-            }));
+            });
             
-            subObjects.emplace_back(D3D12_STATE_SUBOBJECT({
+            subObjects.push_back({
                 .Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY,
                 .pDesc = &hitGroupLibraries.back(),
-            }));
+            });
 
             // Hit group
             {
                 WString& exportName = exportNames.emplace_back(ToWString(hitGroup.name));
-                hitGroups.emplace_back(D3D12_HIT_GROUP_DESC({
+                hitGroups.push_back({
                     .HitGroupExport = exportName.c_str(),
                     .Type = D3D12_HIT_GROUP_TYPE_TRIANGLES,
                     .AnyHitShaderImport = anyHitExportName,
                     .ClosestHitShaderImport = closestHitExportName,
-                }));
+                });
 
-                subObjects.emplace_back(D3D12_STATE_SUBOBJECT({
+                subObjects.push_back({
                     .Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP,
                     .pDesc = &hitGroups.back(),
-                }));
+                });
             }
         }
 
         for (const WString& name : exportNames)
         {
-            exportNamePtrs.emplace_back(name.c_str());
+            exportNamePtrs.push_back(name.c_str());
         }
 
          // Shader config association
@@ -612,10 +612,10 @@ namespace rn::rhi
             .pExports = &exportNamePtrs[0],
         };
 
-        subObjects.emplace_back(D3D12_STATE_SUBOBJECT({
+        subObjects.push_back({
             .Type = D3D12_STATE_SUBOBJECT_TYPE_SUBOBJECT_TO_EXPORTS_ASSOCIATION,
             .pDesc = &shaderConfigToExports,
-        }));
+        });
 
         // Local root signature association
         D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION localRootSigToExports = {
@@ -624,10 +624,10 @@ namespace rn::rhi
             .pExports = &exportNamePtrs[0],
         };
 
-        subObjects.emplace_back(D3D12_STATE_SUBOBJECT({
+        subObjects.push_back({
             .Type = D3D12_STATE_SUBOBJECT_TYPE_SUBOBJECT_TO_EXPORTS_ASSOCIATION,
             .pDesc = &localRootSigToExports,
-        }));
+        });
 
         D3D12_STATE_OBJECT_DESC soDesc = {
             .Type = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE,

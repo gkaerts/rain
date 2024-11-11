@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "device_d3d12.hpp"
 #include "pipeline_d3d12.hpp"
 #include "rhi/rhi_d3d12.hpp"
@@ -189,6 +190,58 @@ namespace rn::rhi
 
             return queue;
         }
+
+        constexpr const D3D12_INDIRECT_ARGUMENT_DESC COMMAND_SIGNATURE_ARGUMENTS[] =
+        {
+            { .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW },
+            { .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED },
+            { .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH },
+            { .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH },
+            { .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_RAYS },
+        };
+        RN_MATCH_ENUM_AND_ARRAY(COMMAND_SIGNATURE_ARGUMENTS, CommandSignatureType);
+
+        constexpr const D3D12_COMMAND_SIGNATURE_DESC COMMAND_SIGNATURES[] = 
+        {
+            {
+                .ByteStride = sizeof(D3D12_DRAW_ARGUMENTS),
+                .NumArgumentDescs = 1,
+                .pArgumentDescs = &COMMAND_SIGNATURE_ARGUMENTS[0]
+            },
+
+            {
+                .ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS),
+                .NumArgumentDescs = 1,
+                .pArgumentDescs = &COMMAND_SIGNATURE_ARGUMENTS[1]
+            },
+
+            {
+                .ByteStride = sizeof(D3D12_DISPATCH_ARGUMENTS),
+                .NumArgumentDescs = 1,
+                .pArgumentDescs = &COMMAND_SIGNATURE_ARGUMENTS[2]
+            },
+
+            {
+                .ByteStride = sizeof(D3D12_DISPATCH_MESH_ARGUMENTS),
+                .NumArgumentDescs = 1,
+                .pArgumentDescs = &COMMAND_SIGNATURE_ARGUMENTS[3]
+            },
+
+            {
+                .ByteStride = sizeof(D3D12_DISPATCH_RAYS_DESC),
+                .NumArgumentDescs = 1,
+                .pArgumentDescs = &COMMAND_SIGNATURE_ARGUMENTS[4]
+            },
+        };
+        RN_MATCH_ENUM_AND_ARRAY(COMMAND_SIGNATURES, CommandSignatureType);
+
+        void BuildCommandSignatures(ID3D12Device10* device, ID3D12CommandSignature** outSignatures)
+        {
+            for (int i = 0; i < int(CommandSignatureType::Count); ++i)
+            {
+                RN_ASSERT(SUCCEEDED(device->CreateCommandSignature(&COMMAND_SIGNATURES[i], nullptr, IID_PPV_ARGS(&outSignatures[i]))));
+            }
+        }
     }
 
     DeviceD3D12::DeviceD3D12(const DeviceD3D12Options& options, const DeviceMemorySettings& memorySettings)
@@ -225,6 +278,7 @@ namespace rn::rhi
         _dsvDescriptorHeap.InitAsDSVHeap(_d3dDevice);
 
         _graphicsQueue = CreateGraphicsQueue(_d3dDevice);
+        BuildCommandSignatures(_d3dDevice, _commandSignatures);
     }
 
     namespace

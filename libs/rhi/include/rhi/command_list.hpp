@@ -3,6 +3,7 @@
 #include "common/common.hpp"
 #include "rhi/handles.hpp"
 #include "rhi/resource.hpp"
+#include "rhi/temporary_resource.hpp"
 #include <span>
 
 namespace rn::rhi
@@ -14,8 +15,7 @@ namespace rn::rhi
 		DoNotCare = 0,
 
 		Load,
-		Clear,
-		Discard
+		Clear
 	};
 
     enum class ShadingRate : uint32_t
@@ -93,6 +93,8 @@ namespace rn::rhi
 		CopyRead,
 		CopyWrite,
 		Present,
+
+        Count
 	};
 
     struct PipelineBarrier
@@ -284,16 +286,24 @@ namespace rn::rhi
 		uint32_t offsetInUniformDataBuffer;
 	};
 
+    struct RenderPassRenderTarget
+    {
+        RenderTargetView view;
+        LoadOp loadOp;
+        ClearValue clearValue;
+    };
+
+    struct RenderPassDepthTarget
+    {
+        DepthStencilView view;
+        LoadOp loadOp;
+        ClearValue clearValue;
+    };
     struct RenderPassBeginDesc
     {
         Viewport viewport;
-        std::initializer_list<RenderTargetView> renderTargets;
-        std::initializer_list<LoadOp> renderTargetLoadOps;
-        std::initializer_list<ClearValue> renderTargetClearValues;
-
-        DepthStencilView depthStencilView;
-        LoadOp depthStencilLoadOp;
-        ClearValue depthStencilClearValue;
+        std::initializer_list<RenderPassRenderTarget> renderTargets;
+        RenderPassDepthTarget depthTarget;
     };
 
     struct BarrierDesc
@@ -374,6 +384,7 @@ namespace rn::rhi
         virtual void DrawIndirect(std::span<IndirectDrawPacket> packets) { RN_NOT_IMPLEMENTED(); }
         virtual void DrawIndirectIndexed(std::span<IndirectIndexedDrawPacket> packets) { RN_NOT_IMPLEMENTED(); }
         virtual void Dispatch(std::span<DispatchPacket> packets) { RN_NOT_IMPLEMENTED(); }
+        virtual void DispatchIndirect(std::span<IndirectDispatchPacket> packets) { RN_NOT_IMPLEMENTED(); }
         virtual void DispatchMesh(std::span<DispatchMeshPacket> packets) { RN_NOT_IMPLEMENTED(); }
         virtual void DispatchMeshIndirect(std::span<IndirectDispatchMeshPacket> packets) { RN_NOT_IMPLEMENTED(); }
         virtual void DispatchRays(std::span<DispatchRaysPacket> packets) { RN_NOT_IMPLEMENTED(); }
@@ -381,7 +392,17 @@ namespace rn::rhi
 
         virtual void Barrier(const BarrierDesc& desc) { RN_NOT_IMPLEMENTED(); }
 
+        virtual TemporaryResource AllocateTemporaryResource(uint32_t sizeInBytes) { RN_NOT_IMPLEMENTED(); return {}; }
+
         virtual void UploadBufferData(Buffer destBuffer, uint32_t destBufferOffset, std::span<const unsigned char> data) { RN_NOT_IMPLEMENTED(); }
+
+        template <typename T>
+        void UploadTypedBufferData(Buffer destBuffer, uint32_t destBufferOffset, std::span<const T> data)
+        {
+            std::span<const unsigned char> byteData(reinterpret_cast<const unsigned char*>(data.data()), data.size() * sizeof(T));
+            UploadBufferData(destBuffer, destBufferOffset, byteData);
+        }
+
         virtual void UploadTextureData(Texture2D destTexture, uint32_t startMipIndex, std::span<const MipUploadDesc> mipDescs, std::span<const unsigned char> sourceData) { RN_NOT_IMPLEMENTED(); }
         virtual void UploadTextureData(Texture3D destTexture, uint32_t startMipIndex, std::span<const MipUploadDesc> mipDescs, std::span<const unsigned char> sourceData) { RN_NOT_IMPLEMENTED(); }
 
@@ -392,6 +413,7 @@ namespace rn::rhi
         virtual void UploadTLASInstances(Buffer instanceBuffer, uint32_t offsetInInstanceBuffer, std::span<const TLASInstanceDesc> instances) { RN_NOT_IMPLEMENTED(); }
         virtual void BuildBLAS(const BLASBuildDesc& desc) { RN_NOT_IMPLEMENTED(); }
         virtual void BuildTLAS(const TLASBuildDesc& desc) { RN_NOT_IMPLEMENTED(); }
-        virtual void BuildShaderRecrodTable(const SRTBuildDesc& desc) { RN_NOT_IMPLEMENTED(); }
+        virtual void BuildShaderRecordTable(const SRTBuildDesc& desc) { RN_NOT_IMPLEMENTED(); }
+
     };
 }
