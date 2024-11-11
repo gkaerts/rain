@@ -6,8 +6,6 @@ project "vulkan"
     files {
         "../third_party/vulkan/include/**.h"
     }
-
-    includedirs { "include/vulkan" }
     
     local target_dir = path.translate("%{wks.location}/%{cfg.buildcfg}/", '\\')
     local lib_dir = path.translate(path.getabsolute("../third_party/vulkan/lib/"), '\\')

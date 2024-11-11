@@ -13,6 +13,8 @@ newoption {
 PLATFORM_BUILD_PROPERTIES = {
     win64 = {
         IncludeTestsInBuild = true,
+        SupportsD3D12 = true,
+        SupportsVulkan = true,
         RequiresExternalVulkanLib = true
     },
 }
@@ -51,7 +53,7 @@ workspace "rain"
     location("build/" .. _OPTIONS["platform"])
 
     -- Platform specific libs
-    if BUILD_PROPERTIES.RequiresExternalVulkanLib then
+    if BUILD_PROPERTIES.SupportVulkan and BUILD_PROPERTIES.RequiresExternalVulkanLib then
         include "contrib/projects/vulkan"
     end
 
