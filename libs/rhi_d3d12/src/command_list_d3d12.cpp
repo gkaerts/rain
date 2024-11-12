@@ -8,6 +8,152 @@
 
 namespace rn::rhi
 {
+    CommandListPool::~CommandListPool()
+    {
+        Reset();
+    }
+
+    void CommandListPool::Reset()
+    {
+        for (CommandListD3D12* cl : _availableCommandLists)
+        {
+            TrackedDelete(cl);
+        }
+        _availableCommandLists.clear();
+
+        for (auto it : _commandAllocators)
+        {
+            for (uint32_t i = 0; i < MAX_FRAME_LATENCY; ++i)
+            {
+                it.second.allocators[i]->Release();
+                it.second.allocators[i] = nullptr;
+            }
+        }
+        _commandAllocators.clear();
+    }
+
+    CommandListD3D12* CommandListPool::GetCommandList(
+        DeviceD3D12* device,
+        uint64_t frameIndex,
+        TemporaryResourceAllocator* uploadAllocator,
+        TemporaryResourceAllocator* readbackAllocator,
+        ID3D12RootSignature* rootSignature, 
+        ID3D12DescriptorHeap* resourceHeap, 
+        ID3D12DescriptorHeap* samplerHeap)
+    {
+        CommandListD3D12* cl = nullptr;
+        ID3D12CommandAllocator* allocator = nullptr;
+        {
+            std::unique_lock L(_mutex);
+
+            auto allocatorsIt = _commandAllocators.find(std::this_thread::get_id());
+            if (allocatorsIt == _commandAllocators.end())
+            {
+                ID3D12Device10* d3dDevice = device->D3DDevice();
+
+                ThreadCommandAllocators newAllocators = {};
+                for (uint32_t i = 0; i < MAX_FRAME_LATENCY; ++i)
+                {
+                    RN_ASSERT(SUCCEEDED(d3dDevice->CreateCommandAllocator(
+                        D3D12_COMMAND_LIST_TYPE_DIRECT,
+                        __uuidof(ID3D12CommandAllocator),
+                        (void**)&newAllocators.allocators[i])));
+                }
+
+                allocatorsIt = _commandAllocators.insert_or_assign(std::this_thread::get_id(), newAllocators).first;
+            }
+
+            allocator = allocatorsIt->second.allocators[frameIndex & MAX_FRAME_LATENCY];
+
+            if (!_availableCommandLists.empty())
+            {
+                cl = _availableCommandLists.back();
+                _availableCommandLists.pop_back();
+            }
+        }
+
+        if (!cl)
+        {
+            cl = TrackedNew<CommandListD3D12>(MemoryCategory::RHI, device, allocator);
+        }
+        else
+        {
+            cl->Reset(allocator);
+        }
+
+        cl->BindInitialState(uploadAllocator, readbackAllocator, rootSignature, resourceHeap, samplerHeap);
+        return cl;
+    }
+
+    void CommandListPool::ReturnCommandList(CommandListD3D12* cl)
+    {
+        std::unique_lock L(_mutex);
+        _availableCommandLists.push_back(cl);
+    }
+
+    void CommandListPool::ResetAllocators(uint64_t frameIndex)
+    {
+        for (const auto& p : _commandAllocators)
+        {
+            RN_ASSERT(SUCCEEDED(p.second.allocators[frameIndex % MAX_FRAME_LATENCY]->Reset()));
+        }
+    }
+
+    CommandListD3D12::CommandListD3D12(DeviceD3D12* device, ID3D12CommandAllocator* allocator)
+        : _device(device)
+    {
+        ID3D12Device10* d3dDevice = device->D3DDevice();
+        RN_ASSERT(SUCCEEDED(d3dDevice->CreateCommandList(
+            0,
+            D3D12_COMMAND_LIST_TYPE_DIRECT,
+            allocator,
+            nullptr,
+            __uuidof(ID3D12GraphicsCommandList7),
+            (void**)(&_cl))));
+    }
+
+    CommandListD3D12::~CommandListD3D12()
+    {
+        if (_cl)
+        {
+            _cl->Release();
+            _cl = nullptr;
+        }
+    }
+
+    void CommandListD3D12::Reset(ID3D12CommandAllocator* allocator)
+    {
+        _cl->Reset(allocator, nullptr);
+        _state = {};
+    }
+
+    void CommandListD3D12::BindInitialState(
+        TemporaryResourceAllocator* uploadAllocator, 
+        TemporaryResourceAllocator* readbackAllocator,
+        ID3D12RootSignature* rootSignature, 
+        ID3D12DescriptorHeap* resourceHeap, 
+        ID3D12DescriptorHeap* samplerHeap)
+    {
+        _uploadAllocator = uploadAllocator;
+        _readbackAllocator = readbackAllocator;
+        
+        ID3D12DescriptorHeap* const heaps[] = {
+            resourceHeap,
+            samplerHeap
+        };
+
+        _cl->SetDescriptorHeaps(RN_ARRAY_SIZE(heaps), heaps);
+        _cl->SetGraphicsRootSignature(rootSignature);
+        _cl->SetComputeRootSignature(rootSignature);
+    }
+
+    void CommandListD3D12::Finalize()
+    {
+        RN_ASSERT(SUCCEEDED(_cl->Close()));
+        _uploadAllocator = nullptr;
+        _readbackAllocator = nullptr;
+    }
+
     void CommandListD3D12::BeginRenderPass(const RenderPassBeginDesc& desc)
     {
         D3D12_CPU_DESCRIPTOR_HANDLE dsvDescriptor = {};
@@ -420,6 +566,7 @@ namespace rn::rhi
             MATCH_FLAG(D3D12_BARRIER_ACCESS_COPY_SOURCE,            PipelineAccess::CopyRead);
             MATCH_FLAG(D3D12_BARRIER_ACCESS_COPY_DEST,              PipelineAccess::CopyWrite);
             MATCH_FLAG(D3D12_BARRIER_ACCESS_CONSTANT_BUFFER,        PipelineAccess::UniformBuffer);
+            MATCH_FLAG(D3D12_BARRIER_ACCESS_NO_ACCESS,              PipelineAccess::NoAccess);
 
             MATCH_FLAG(D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ,     PipelineAccess::AccelerationStructureRead);
             MATCH_FLAG(D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE,    PipelineAccess::AccelerationStructureWrite);
@@ -500,6 +647,8 @@ namespace rn::rhi
                         .NumMipLevels = barrier.numMips,
                         .FirstArraySlice = barrier.firstArraySlice,
                         .NumArraySlices = barrier.numArraySlices,
+                        .FirstPlane = 0,
+                        .NumPlanes = 1
                     }
                 });
             }
@@ -526,7 +675,11 @@ namespace rn::rhi
                     .pResource = resource,
                     .Subresources = {
                         .IndexOrFirstMipLevel = barrier.firstMipLevel,
-                        .NumMipLevels = barrier.numMips
+                        .NumMipLevels = barrier.numMips,
+                        .FirstArraySlice = 0,
+                        .NumArraySlices = 1,
+                        .FirstPlane = 0,
+                        .NumPlanes = 1
                     }
                 });
             }
@@ -868,9 +1021,125 @@ namespace rn::rhi
         rtpsoProperties->Release();
     }
 
+    namespace
+    {
+        struct ReadbackData
+        {
+            std::span<const unsigned char> data;
+            FnOnReadback onReadback;
+            void* userData;
+        };
+    }
 
+    void CommandListD3D12::QueueBufferReadback(Buffer buffer, uint32_t offsetInBuffer, uint32_t sizeInBytes, FnOnReadback onReadback, void* userData)
+    {
+        TemporaryResource readbackResource = _readbackAllocator->AllocateTemporaryResource(sizeInBytes, 256);
+        CopyBufferRegion(
+            readbackResource.buffer,
+            readbackResource.offsetInBytes,
+            buffer,
+            offsetInBuffer,
+            sizeInBytes);
 
+        // Readbacks *should* be infrequent, so this won't hurt too bad, but it'd be nice to replace this with a bump allocator later
+        ReadbackData* readbackData = TrackedNew<ReadbackData>(MemoryCategory::RHI);
+        *readbackData = {
+            .data = std::span<const unsigned char>(static_cast<const unsigned char*>(readbackResource.cpuPtr), readbackResource.sizeInBytes),
+            .onReadback = onReadback,
+            .userData = userData
+        };
 
+        _device->QueueFrameFinalizerAction([](DeviceD3D12* device, void* userData)
+            {
+                ReadbackData* readbackData = reinterpret_cast<ReadbackData*>(userData);
+                readbackData->onReadback(readbackData->data, readbackData->userData);
 
+                TrackedDelete(readbackData);
+            },
+            readbackData);
+    }
 
+    namespace
+    {
+        void QueueTextureReadbackInternal(
+            DeviceD3D12* device,
+            ID3D12GraphicsCommandList7* cl,
+            ID3D12Resource* srcResource,
+            TemporaryResourceAllocator* readbackAllocator,
+            FnOnReadback onReadback,
+            void* userData)
+        {
+            D3D12_PLACED_SUBRESOURCE_FOOTPRINT textureFootprint = {};
+        
+            UINT numRows = 0;
+            UINT64 rowSizeInBytes = 0;
+            UINT64 readbackSize = 0;
+            D3D12_RESOURCE_DESC srcTextureDesc = srcResource->GetDesc();
+
+            device->D3DDevice()->GetCopyableFootprints(
+                &srcTextureDesc,
+                0,
+                1,
+                0,
+                &textureFootprint,
+                &numRows,
+                &rowSizeInBytes,
+                &readbackSize);
+
+            TemporaryResource readbackResource = readbackAllocator->AllocateTemporaryResource(uint32_t(readbackSize), 4 * KILO);
+            ID3D12Resource* destResource = device->Resolve(readbackResource.buffer);
+            
+            const D3D12_TEXTURE_COPY_LOCATION bufferDestLocation = 
+            {
+                .pResource = destResource,
+                .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+                .PlacedFootprint = 
+                {
+                    .Offset = readbackResource.offsetInBytes,
+                    .Footprint = textureFootprint.Footprint
+                }
+            };
+
+            const D3D12_TEXTURE_COPY_LOCATION textureSrcLocation =
+            {
+                .pResource = srcResource,
+                .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+                .SubresourceIndex = 0
+            };
+
+            cl->CopyTextureRegion(
+                &bufferDestLocation,
+                0, 0, 0,
+                &textureSrcLocation,
+                nullptr);
+
+            ReadbackData* readbackData = TrackedNew<ReadbackData>(MemoryCategory::RHI);
+            *readbackData = {
+                .data = std::span<const unsigned char>(static_cast<const unsigned char*>(readbackResource.cpuPtr), readbackResource.sizeInBytes),
+                .onReadback = onReadback,
+                .userData = userData
+            };
+
+            device->QueueFrameFinalizerAction([](DeviceD3D12* device, void* userData)
+                {
+                    ReadbackData* readbackData = reinterpret_cast<ReadbackData*>(userData);
+                    readbackData->onReadback(readbackData->data, readbackData->userData);
+
+                    TrackedDelete(readbackData);
+                },
+                readbackData);
+        }
+    }
+
+    void CommandListD3D12::QueueTextureReadback(Texture2D texture, FnOnReadback onReadback, void* userData)
+    {
+        ID3D12Resource* srcResource = _device->Resolve(texture);
+        QueueTextureReadbackInternal(_device, _cl, srcResource, _readbackAllocator, onReadback, userData);
+    }
+
+    void CommandListD3D12::QueueTextureReadback(Texture3D texture, FnOnReadback onReadback, void* userData)
+    {
+        ID3D12Resource* srcResource = _device->Resolve(texture);
+        QueueTextureReadbackInternal(_device, _cl, srcResource, _readbackAllocator, onReadback, userData);
+    }
 }

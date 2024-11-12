@@ -76,6 +76,7 @@ namespace rn::rhi
 		AccelerationStructureRead	= 0x400,
 		AccelerationStructureWrite	= 0x800,
 		UniformBuffer				= 0x1000,
+        NoAccess                    = 0x2000,
 	};
 	RN_DEFINE_ENUM_CLASS_BITWISE_API(PipelineAccess)
 
@@ -353,6 +354,7 @@ namespace rn::rhi
         std::span<ShaderRecordBuildDesc> hitGroupDescs;
     };
 
+    using FnOnReadback = void(*)(std::span<const unsigned char> data, void* userData);
     class CommandList
     {
     public:
@@ -414,6 +416,10 @@ namespace rn::rhi
         virtual void BuildBLAS(const BLASBuildDesc& desc) { RN_NOT_IMPLEMENTED(); }
         virtual void BuildTLAS(const TLASBuildDesc& desc) { RN_NOT_IMPLEMENTED(); }
         virtual void BuildShaderRecordTable(const SRTBuildDesc& desc) { RN_NOT_IMPLEMENTED(); }
+
+        virtual void QueueBufferReadback(Buffer buffer, uint32_t offsetInBuffer, uint32_t sizeInBytes, FnOnReadback onReadback, void* userData) { RN_NOT_IMPLEMENTED(); };
+        virtual void QueueTextureReadback(Texture2D texture, FnOnReadback onReadback, void* userData) { RN_NOT_IMPLEMENTED(); };
+        virtual void QueueTextureReadback(Texture3D texture, FnOnReadback onReadback, void* userData) { RN_NOT_IMPLEMENTED(); };
 
     };
 }

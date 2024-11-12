@@ -42,6 +42,9 @@ namespace rn::rhi
 
         D3D12_CPU_DESCRIPTOR_HANDLE Resolve(ResourceDescriptor descriptor) const;
 
+        ID3D12DescriptorHeap* D3DHeap() const { return _heap; }
+        void Reset();
+
     private:
 
         enum class Type

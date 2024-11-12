@@ -8,7 +8,10 @@
 
 #include "d3d12.h"
 #include <dxgi1_6.h>
+#include <dxgidebug.h>
 
+extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614;}
+extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\"; }
 namespace rn::rhi
 {
     constexpr const D3D_FEATURE_LEVEL DEFAULT_D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_12_1;
@@ -191,6 +194,14 @@ namespace rn::rhi
             return queue;
         }
 
+        ID3D12Fence* CreateFence(ID3D12Device10* device)
+        {
+            ID3D12Fence* fence = nullptr;
+            RN_ASSERT(SUCCEEDED(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence), (void**)(&fence))));
+
+            return fence;
+        }
+
         constexpr const D3D12_INDIRECT_ARGUMENT_DESC COMMAND_SIGNATURE_ARGUMENTS[] =
         {
             { .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW },
@@ -278,6 +289,8 @@ namespace rn::rhi
         _dsvDescriptorHeap.InitAsDSVHeap(_d3dDevice);
 
         _graphicsQueue = CreateGraphicsQueue(_d3dDevice);
+        _graphicsFence = CreateFence(_d3dDevice);
+
         BuildCommandSignatures(_d3dDevice, _commandSignatures);
     }
 
@@ -296,19 +309,150 @@ namespace rn::rhi
 
     DeviceD3D12::~DeviceD3D12()
     {
+        for (const auto& p : _uploadAllocators)
+        {
+            p.second->Reset();
+        }
+
+        for (const auto& p : _readbackAllocators)
+        {
+            p.second->Reset();
+        }
+        EndFrame();
+        WaitForGraphicsQueueFence(_lastSubmittedGraphicsFenceValue);
+
+        // Wrap up all outstanding work
+        for (uint32_t i = 0; i < MAX_FRAME_LATENCY; ++i)
+        {
+            _gpuFrameFinalizerQueues[i].Flush(this);
+        }
+
+        _commandListPool.Reset();
+
+        SafeRelease(_graphicsFence);
         SafeRelease(_graphicsQueue);
         SafeRelease(_rtLocalRootSignature);
         SafeRelease(_bindlessRootSignature);
         SafeRelease(_d3dDevice);
         SafeRelease(_dxgiAdapter);
         SafeRelease(_dxgiFactory);
+
+        if (_d3dDebug)
+        {
+            IDXGIDebug* dxgiDebug = nullptr;
+            RN_ASSERT(SUCCEEDED(DXGIGetDebugInterface1(0, __uuidof(IDXGIDebug), (void**)&dxgiDebug)));
+            dxgiDebug->ReportLiveObjects(DXGI_DEBUG_DX, DXGI_DEBUG_RLO_DETAIL);
+            dxgiDebug->Release();
+        }
         SafeRelease(_d3dDebug);
+    }
+
+    uint64_t DeviceD3D12::SignalGraphicsQueueFence()
+    {
+        ++_lastSubmittedGraphicsFenceValue;
+        _graphicsQueue->Signal(_graphicsFence, _lastSubmittedGraphicsFenceValue);
+
+        return _lastSubmittedGraphicsFenceValue;
+    }
+
+    void DeviceD3D12::WaitForGraphicsQueueFence(uint64_t fence)
+    {
+        if (fence > _lastSeenGraphicsFenceValue)
+        {
+            _lastSeenGraphicsFenceValue = _graphicsFence->GetCompletedValue();
+            while (fence > _lastSeenGraphicsFenceValue)
+            {
+                std::this_thread::yield();
+                _lastSeenGraphicsFenceValue = _graphicsFence->GetCompletedValue();
+            }
+        }
+    }
+
+    void DeviceD3D12::EndFrame()
+    {
+        _signalledFrameGraphicsFenceValues[_frameIndex % MAX_FRAME_LATENCY] = SignalGraphicsQueueFence();
+
+        uint64_t nextFrameIndex = _frameIndex + 1;
+        uint64_t fence = _signalledFrameGraphicsFenceValues[nextFrameIndex % MAX_FRAME_LATENCY];
+        WaitForGraphicsQueueFence(fence);
+
+        // Execute on all queued up finalizer actions
+        _gpuFrameFinalizerQueues[nextFrameIndex % MAX_FRAME_LATENCY].Flush(this);
+
+        // Reset upload allocator pages
+        for (const auto& p : _uploadAllocators)
+        {
+            p.second->Flush(nextFrameIndex);
+        }
+
+        for (const auto& p : _readbackAllocators)
+        {
+            p.second->Flush(nextFrameIndex);
+        }
+
+        // Reset command allocators
+        _commandListPool.ResetAllocators(nextFrameIndex);
+
+        _frameIndex = nextFrameIndex;
+    }
+
+    CommandList* DeviceD3D12::AllocateCommandList()
+    {
+        return _commandListPool.GetCommandList(
+            this, 
+            _frameIndex,
+            GetTemporaryResourceAllocatorForCurrentThread(),
+            GetReadbackAllocatorForCurrentThread(),
+            _bindlessRootSignature,
+            _resourceDescriptorHeap.D3DHeap(),
+            _samplerDescriptorHeap.D3DHeap());
+    }
+
+    void DeviceD3D12::SubmitCommandLists(std::span<CommandList*> cls)
+    {
+        std::span<CommandListD3D12*> d3d12CLs(reinterpret_cast<CommandListD3D12**>(cls.data()), cls.size());
+        for (CommandListD3D12* cl : d3d12CLs)
+        {
+            cl->Finalize();
+        }
+
+        MemoryScope SCOPE;
+        ScopedVector<ID3D12CommandList*> nativeCLs;
+        nativeCLs.reserve(cls.size());
+
+        for (CommandListD3D12* cl : d3d12CLs)
+        {
+            nativeCLs.push_back(cl->D3DCommandList());
+        }
+
+        _graphicsQueue->ExecuteCommandLists(UINT(nativeCLs.size()), nativeCLs.data());
+        SignalGraphicsQueueFence();
+
+        for (CommandListD3D12* cl : d3d12CLs)
+        {
+            _commandListPool.ReturnCommandList(cl);
+        }
     }
 
     void DeviceD3D12::QueueFrameFinalizerAction(FnOnFinalize fn, void* data)
     {
         FinalizerQueue& queue = _gpuFrameFinalizerQueues[_frameIndex % MAX_FRAME_LATENCY];
         queue.Queue(fn, data);
+    }
+
+    void* DeviceD3D12::MapBuffer(Buffer buffer, uint64_t offset, uint64_t size)
+    {
+        ID3D12Resource* resource = Resolve(buffer);
+
+        void* ptr = nullptr;
+        RN_ASSERT(SUCCEEDED(resource->Map(0, nullptr, &ptr)));
+        return static_cast<void*>(static_cast<unsigned char*>(ptr) + offset);
+    }
+
+    void DeviceD3D12::UnmapBuffer(Buffer buffer, uint64_t offset, uint64_t size)
+    {
+        ID3D12Resource* resource = Resolve(buffer);
+        resource->Unmap(0, nullptr);
     }
 
 }

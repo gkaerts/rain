@@ -107,6 +107,7 @@ TEST_F(DeviceD3D12Tests, CanCreateAndDestroyBuffers)
 
         rhi::Buffer b = device->CreateBuffer({
                 .flags = f,
+                .size = sizeInBytes,
                 .name = "Test Buffer"
             },
             region);

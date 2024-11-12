@@ -23,6 +23,12 @@ namespace rn::rhi
 
     TemporaryResourceAllocator::~TemporaryResourceAllocator()
     {
+        Reset();
+        TrackedDeleteArray(_retiredPageQueues);
+    }
+
+    void TemporaryResourceAllocator::Reset()
+    {
         for (Page& p : _pages)
         {
             DestroyPage(p);
@@ -35,7 +41,6 @@ namespace rn::rhi
 
         _pages.clear();
         _fallbackPages.clear();
-        TrackedDeleteArray(_retiredPageQueues);
     }
 
     TemporaryResource TemporaryResourceAllocator::AllocateTemporaryResource(uint32_t size, uint32_t alignment)
@@ -100,6 +105,7 @@ namespace rn::rhi
         GPUAllocation alloc = _parentDevice->GPUAlloc(MemoryCategory::RHI, size, _allocFlags);
         Buffer b = _parentDevice->CreateBuffer({
             .flags = _creationFlags,
+            .size = uint32_t(size),
             .name = "Temporary Resource Page"
         },
         {
@@ -112,7 +118,8 @@ namespace rn::rhi
         {
             .alloc = alloc,
             .buffer = b,
-            .mappedPtr = _mapFn(_parentDevice, alloc, 0, size)
+            .mappedPtr = _mapFn(_parentDevice, b, 0, size),
+            .size = size
         };
 
         return page;
@@ -120,7 +127,7 @@ namespace rn::rhi
 
     void TemporaryResourceAllocator::DestroyPage(Page& page)
     {
-        _unmapFn(_parentDevice, page.alloc);
+        _unmapFn(_parentDevice, page.buffer, 0, page.size);
         _parentDevice->Destroy(page.buffer);
         _parentDevice->GPUFree(page.alloc);
     }

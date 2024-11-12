@@ -16,8 +16,8 @@ namespace rn::rhi
     enum class GPUAllocationFlags : uint32_t;
     enum class BufferCreationFlags : uint32_t;
 
-    using FnMapMemory = void*(*)(Device*, GPUAllocation, uint64_t, uint64_t);
-    using FnUnmapMemory = void(*)(Device*, GPUAllocation);
+    using FnMapMemory = void*(*)(Device*, Buffer, uint64_t, uint64_t);
+    using FnUnmapMemory = void(*)(Device*, Buffer, uint64_t, uint64_t);
 
     constexpr const uint32_t TEMPORARY_ALLOCATOR_PAGE_SIZE = 4 * MEGA;
     constexpr const uint32_t TEMPORARY_RESOURCE_THRESHOLD_SIZE = 3 * MEGA;
@@ -53,6 +53,7 @@ namespace rn::rhi
 
         TemporaryResource AllocateTemporaryResource(uint32_t size, uint32_t alignment);
         void Flush(uint64_t currentFrameIndex);
+        void Reset();
 
     private:
 
@@ -62,6 +63,7 @@ namespace rn::rhi
             Buffer buffer;
 
             void* mappedPtr;
+            uint64_t size;
         };
 
         struct RetiredPage

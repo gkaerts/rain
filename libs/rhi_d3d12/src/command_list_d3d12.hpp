@@ -3,14 +3,69 @@
 #include "rhi/command_list.hpp"
 #include "rhi/pipeline.hpp"
 #include "rhi/temporary_resource.hpp"
+#include "rhi/limits.hpp"
+
+#include "common/memory/vector.hpp"
+#include "common/memory/hash_map.hpp"
+
 #include "d3d12_fwd.hpp"
+
+#include <mutex>
+#include <thread>
 
 namespace rn::rhi
 {
     class DeviceD3D12;
+    class CommandListD3D12;
+
+    RN_MEMORY_CATEGORY(RHI);
+
+    class CommandListPool
+    {
+    public:
+
+        ~CommandListPool();
+
+        CommandListD3D12* GetCommandList(
+            DeviceD3D12* device,
+            uint64_t frameIndex, 
+            TemporaryResourceAllocator* uploadAllocator,
+            TemporaryResourceAllocator* readbackAllocator,
+            ID3D12RootSignature* rootSignature, 
+            ID3D12DescriptorHeap* resourceHeap, 
+            ID3D12DescriptorHeap* samplerHeap);
+
+        void ReturnCommandList(CommandListD3D12* cl);
+        void ResetAllocators(uint64_t frameIndex);
+        void Reset();
+
+    private:
+
+        struct ThreadCommandAllocators
+        {
+            ID3D12CommandAllocator* allocators[MAX_FRAME_LATENCY] = {};
+        };
+
+        std::mutex _mutex;
+        Vector<CommandListD3D12*> _availableCommandLists = MakeVector<CommandListD3D12*>(MemoryCategory::RHI);
+        HashMap<std::thread::id, ThreadCommandAllocators> _commandAllocators = MakeHashMap<std::thread::id, ThreadCommandAllocators>(MemoryCategory::RHI);
+    };
+
     class CommandListD3D12 : public CommandList
     {
     public:
+
+        CommandListD3D12(DeviceD3D12* device, ID3D12CommandAllocator* allocator);
+        ~CommandListD3D12();
+
+        void Reset(ID3D12CommandAllocator* allocator);
+        void BindInitialState(
+            TemporaryResourceAllocator* uploadAllocator,
+            TemporaryResourceAllocator* readbackAllocator,
+            ID3D12RootSignature* rootSignature, 
+            ID3D12DescriptorHeap* resourceHeap, 
+            ID3D12DescriptorHeap* samplerHeap);
+        void Finalize();
 
         void BeginRenderPass(const RenderPassBeginDesc& desc) override;
         void EndRenderPass() override;
@@ -51,6 +106,12 @@ namespace rn::rhi
         void BuildTLAS(const TLASBuildDesc& desc) override;
         void BuildShaderRecordTable(const SRTBuildDesc& desc) override;
 
+        void QueueBufferReadback(Buffer buffer, uint32_t offsetInBuffer, uint32_t sizeInBytes, FnOnReadback onReadback, void* userData) override;
+        void QueueTextureReadback(Texture2D texture, FnOnReadback onReadback, void* userData) override;
+        void QueueTextureReadback(Texture3D texture, FnOnReadback onReadback, void* userData) override;
+
+        ID3D12GraphicsCommandList7* D3DCommandList() const { return _cl; }
+
     private:
 
         void BindRasterPipeline(RasterPipeline pipeline);
@@ -79,6 +140,7 @@ namespace rn::rhi
         ID3D12GraphicsCommandList7* _cl = nullptr;
 
         TemporaryResourceAllocator* _uploadAllocator = nullptr;
+        TemporaryResourceAllocator* _readbackAllocator = nullptr;
 
         State _state = {};
     };

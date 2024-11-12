@@ -343,7 +343,7 @@ namespace rn::rhi
 
     Buffer DeviceD3D12::CreateBuffer(const BufferDesc& desc, const GPUMemoryRegion& region)
     {
-        RN_ASSERT(IsValid(region.allocation) && region.regionSize > 0);
+        RN_ASSERT(IsValid(region.allocation) && region.regionSize >= desc.size);
 
         ID3D12Heap* heap = _gpuAllocations.GetHot(region.allocation);
 
@@ -356,7 +356,7 @@ namespace rn::rhi
 
         D3D12_RESOURCE_DESC1 resourceDesc = {
             .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
-            .Width = region.regionSize,
+            .Width = desc.size,
             .Height = 1,
             .DepthOrArraySize = 1,
             .MipLevels = 1,
@@ -1432,6 +1432,46 @@ namespace rn::rhi
 
             ++instanceIdx;
         }
+    }
+
+    TemporaryResourceAllocator* DeviceD3D12::GetTemporaryResourceAllocatorForCurrentThread()
+    {
+        std::unique_lock lock(_uploadAllocatorMutex);
+        auto it = _uploadAllocators.find(std::this_thread::get_id());
+        if (it == _uploadAllocators.end())
+        {
+            TemporaryResourceAllocator* newAllocator = TrackedNew<TemporaryResourceAllocator>(MemoryCategory::RHI,
+                this, 
+                MAX_FRAME_LATENCY, 
+                GPUAllocationFlags::HostUpload,
+                BufferCreationFlags::AllowShaderReadOnly | BufferCreationFlags::AllowUniformBuffer,
+                [](Device* device, Buffer buffer, uint64_t offset, uint64_t size) -> void* { return reinterpret_cast<DeviceD3D12*>(device)->MapBuffer(buffer, offset, size); },
+                [](Device* device, Buffer buffer, uint64_t offset, uint64_t size) { reinterpret_cast<DeviceD3D12*>(device)->UnmapBuffer(buffer, offset, size); });
+
+            it = _uploadAllocators.insert_or_assign(std::this_thread::get_id(), newAllocator).first;
+        }
+
+        return it->second;
+    }
+
+    TemporaryResourceAllocator* DeviceD3D12::GetReadbackAllocatorForCurrentThread()
+    {
+        std::unique_lock lock(_readbackAllocatorMutex);
+        auto it = _readbackAllocators.find(std::this_thread::get_id());
+        if (it == _readbackAllocators.end())
+        {
+            TemporaryResourceAllocator* newAllocator = TrackedNew<TemporaryResourceAllocator>(MemoryCategory::RHI,
+                this, 
+                MAX_FRAME_LATENCY, 
+                GPUAllocationFlags::HostReadback,
+                BufferCreationFlags::None,
+                [](Device* device, Buffer buffer, uint64_t offset, uint64_t size) -> void* { return reinterpret_cast<DeviceD3D12*>(device)->MapBuffer(buffer, offset, size); },
+                [](Device* device, Buffer buffer, uint64_t offset, uint64_t size) { reinterpret_cast<DeviceD3D12*>(device)->UnmapBuffer(buffer, offset, 0); });
+
+            it = _readbackAllocators.insert_or_assign(std::this_thread::get_id(), newAllocator).first;
+        }
+
+        return it->second;
     }
 
     ID3D12PipelineState* DeviceD3D12::Resolve(RasterPipeline pipeline) const

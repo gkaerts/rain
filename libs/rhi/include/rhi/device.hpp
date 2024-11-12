@@ -13,6 +13,9 @@ namespace rn
 
 namespace rn::rhi
 {
+    class CommandList;
+    class TemporaryResourceAllocator;
+
     struct DeviceMemorySettings
     {
         uint32_t rasterPipelineCapacity;
@@ -45,6 +48,7 @@ namespace rn::rhi
         virtual ~Device() {}
 
         virtual DeviceCaps              Capabilities() const = 0;
+        virtual void                    EndFrame() = 0;
 
         // Pipeline API
         virtual RasterPipeline          CreateRasterPipeline(const VertexRasterPipelineDesc& desc) { RN_NOT_IMPLEMENTED(); return RasterPipeline::Invalid; }
@@ -112,6 +116,10 @@ namespace rn::rhi
 
         virtual ResourceFootprint       CalculateTLASInstanceBufferFootprint(uint32_t instanceCount) { RN_NOT_IMPLEMENTED(); return {}; }
         virtual void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, std::span<unsigned char*> destData) { RN_NOT_IMPLEMENTED(); }
+
+        // Command API
+        virtual CommandList*            AllocateCommandList() { RN_NOT_IMPLEMENTED(); return nullptr; }
+        virtual void                    SubmitCommandLists(std::span<CommandList*> cls) { RN_NOT_IMPLEMENTED(); }
     };
 
     void DestroyDevice(Device* device);

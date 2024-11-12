@@ -2,10 +2,13 @@
 
 #include "rhi/device.hpp"
 #include "rhi/handles.hpp"
+#include "rhi/limits.hpp"
 
 #include "common/memory/object_pool.hpp"
 #include "common/memory/vector.hpp"
+#include "common/memory/hash_map.hpp"
 
+#include "command_list_d3d12.hpp"
 #include "resource_d3d12.hpp"
 #include "d3d12_fwd.hpp"
 
@@ -15,8 +18,6 @@
 namespace rn::rhi
 {
     RN_MEMORY_CATEGORY(RHI)
-
-    constexpr const uint32_t MAX_FRAME_LATENCY = 3;
 
     class DeviceD3D12;
     struct DeviceD3D12Options;
@@ -85,7 +86,8 @@ namespace rn::rhi
         DeviceD3D12(const DeviceD3D12Options& options, const DeviceMemorySettings& memorySettings);
         ~DeviceD3D12();
 
-        DeviceCaps Capabilities() const override { return _caps; }
+        DeviceCaps  Capabilities() const override { return _caps; }
+        void        EndFrame();
 
         // Pipeline API
         RasterPipeline          CreateRasterPipeline(const VertexRasterPipelineDesc& desc) override;
@@ -151,6 +153,10 @@ namespace rn::rhi
         ResourceFootprint       CalculateTLASInstanceBufferFootprint(uint32_t instanceCount) override;
         void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, std::span<unsigned char*> destData) override;
 
+        // Command API
+        CommandList*            AllocateCommandList() override;
+        void                    SubmitCommandLists(std::span<CommandList*> cls) override;
+
 
         ID3D12PipelineState*        Resolve(RasterPipeline pipeline) const;
         ID3D12PipelineState*        Resolve(ComputePipeline pipeline) const;
@@ -167,9 +173,19 @@ namespace rn::rhi
 
         ID3D12CommandSignature*     CommandSignature(CommandSignatureType type) const { return _commandSignatures[int(type)]; }
 
-    private:
+        void* MapBuffer(Buffer buffer, uint64_t offset, uint64_t size);
+        void  UnmapBuffer(Buffer buffer, uint64_t offset, uint64_t size);
+
+        ID3D12Device10* D3DDevice() const { return _d3dDevice; }
 
         void QueueFrameFinalizerAction(FnOnFinalize fn, void* data);
+
+    private:
+
+        uint64_t SignalGraphicsQueueFence();
+        void WaitForGraphicsQueueFence(uint64_t fence);
+        TemporaryResourceAllocator* GetTemporaryResourceAllocatorForCurrentThread();
+        TemporaryResourceAllocator* GetReadbackAllocatorForCurrentThread();
 
         DeviceCaps _caps = {};
 
@@ -191,7 +207,7 @@ namespace rn::rhi
         Texture3DPool _texture3Ds;
         BLASPool _blases;
 
-        uint32_t _frameIndex = 0;
+        uint64_t _frameIndex = 0;
         FinalizerQueue _gpuFrameFinalizerQueues[MAX_FRAME_LATENCY];
 
         DescriptorHeap _resourceDescriptorHeap;
@@ -200,6 +216,20 @@ namespace rn::rhi
         DescriptorHeap _dsvDescriptorHeap;    
 
         ID3D12CommandQueue* _graphicsQueue = nullptr;
+        ID3D12Fence* _graphicsFence = nullptr;
+        uint64_t _signalledFrameGraphicsFenceValues[MAX_FRAME_LATENCY] = {};
+        uint64_t _lastSeenGraphicsFenceValue = 0;
+        uint64_t _lastSubmittedGraphicsFenceValue = 0;
+
         ID3D12CommandSignature* _commandSignatures[int(CommandSignatureType::Count)] = {};
+
+        CommandListPool _commandListPool;
+
+        std::mutex _uploadAllocatorMutex;
+        HashMap<std::thread::id, TemporaryResourceAllocator*> _uploadAllocators = MakeHashMap<std::thread::id, TemporaryResourceAllocator*>(MemoryCategory::RHI);
+
+        std::mutex _readbackAllocatorMutex;
+        HashMap<std::thread::id, TemporaryResourceAllocator*> _readbackAllocators = MakeHashMap<std::thread::id, TemporaryResourceAllocator*>(MemoryCategory::RHI);
+
     };
 }

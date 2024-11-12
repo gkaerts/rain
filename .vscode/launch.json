@@ -1,0 +1,39 @@
+{
+    "configurations": [
+        {
+            "name": "Debug Test",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/win64/${input:configuration}/${input:test}.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal"
+        },
+    ],
+    "inputs": [
+        {
+            "type": "pickString",
+            "id": "configuration",
+            "description": "The configuration to run",
+            "options": [
+                "Debug",
+                "Release"
+            ],
+            "default": "Debug"
+        },
+
+        {
+            "type": "pickString",
+            "id": "test",
+            "description": "The test suite to run",
+            "options": [
+                "commonTests",
+                "rhiTest",
+                "rhiD3D12Tests"
+            ],
+            "default": "rhiD3D12Tests"
+        }
+    ]
+}

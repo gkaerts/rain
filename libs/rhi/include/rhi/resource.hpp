@@ -156,6 +156,7 @@ namespace rn::rhi
     struct BufferDesc
     {
         BufferCreationFlags flags;
+        uint32_t size;
         const char* name;
     };
 
