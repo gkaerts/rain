@@ -1,1 +1,1 @@
--- Empty file
+include "game"

@@ -11,6 +11,18 @@
             "environment": [],
             "console": "integratedTerminal"
         },
+
+        {
+            "name": "Debug Game",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/win64/${input:configuration}/game.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal"
+        },
     ],
     "inputs": [
         {

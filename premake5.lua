@@ -15,7 +15,8 @@ PLATFORM_BUILD_PROPERTIES = {
         IncludeTestsInBuild = true,
         SupportsD3D12 = true,
         SupportsVulkan = true,
-        RequiresExternalVulkanLib = true
+        RequiresExternalVulkanLib = true,
+        RequiresSDL = true
     },
 }
 

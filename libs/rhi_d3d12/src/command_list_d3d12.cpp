@@ -63,7 +63,7 @@ namespace rn::rhi
                 allocatorsIt = _commandAllocators.insert_or_assign(std::this_thread::get_id(), newAllocators).first;
             }
 
-            allocator = allocatorsIt->second.allocators[frameIndex & MAX_FRAME_LATENCY];
+            allocator = allocatorsIt->second.allocators[frameIndex % MAX_FRAME_LATENCY];
 
             if (!_availableCommandLists.empty())
             {
