@@ -1,6 +1,7 @@
 #define NOMINMAX
 #include "device_d3d12.hpp"
 #include "pipeline_d3d12.hpp"
+#include "swap_chain_d3d12.hpp"
 #include "rhi/rhi_d3d12.hpp"
 
 #include "common/memory/memory.hpp"
@@ -394,6 +395,42 @@ namespace rn::rhi
         _commandListPool.ResetAllocators(nextFrameIndex);
 
         _frameIndex = nextFrameIndex;
+    }
+
+    SwapChain* DeviceD3D12::CreateSwapChain(
+        void* windowHandle, 
+        RenderTargetFormat format,
+        uint32_t width, 
+        uint32_t height,
+        uint32_t bufferCount,
+        PresentMode presentMode)
+    {
+        return TrackedNew<SwapChainD3D12>(MemoryCategory::RHI, 
+            this, 
+            _graphicsQueue, 
+            _dxgiFactory, 
+            (HWND)windowHandle, 
+            format, 
+            width, 
+            height, 
+            bufferCount, 
+            presentMode);
+    }
+
+    void DeviceD3D12::Destroy(SwapChain* swapChain)
+    {
+        TrackedDelete(static_cast<SwapChainD3D12*>(swapChain));
+    }
+
+    void DeviceD3D12::DrainGPU()
+    {
+        uint64_t fence = SignalGraphicsQueueFence();
+        WaitForGraphicsQueueFence(fence);
+
+        for (uint32_t i = 0; i < MAX_FRAME_LATENCY; ++i)
+        {
+            _gpuFrameFinalizerQueues[i].Flush(this);
+        }
     }
 
     CommandList* DeviceD3D12::AllocateCommandList()

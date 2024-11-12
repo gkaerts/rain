@@ -15,6 +15,7 @@ namespace rn::rhi
 {
     class CommandList;
     class TemporaryResourceAllocator;
+    class SwapChain;
 
     struct DeviceMemorySettings
     {
@@ -40,6 +41,11 @@ namespace rn::rhi
         bool isUMA : 1;
         bool hasMemorylessAllocations : 1;
     };
+    enum class PresentMode : uint32_t
+    {
+        Immediate = 0,
+        VSync
+    };
 
     class Device
     {
@@ -49,6 +55,15 @@ namespace rn::rhi
 
         virtual DeviceCaps              Capabilities() const = 0;
         virtual void                    EndFrame() = 0;
+
+        virtual SwapChain*              CreateSwapChain(
+                                            void* windowHandle, 
+                                            RenderTargetFormat format,
+                                            uint32_t width, 
+                                            uint32_t height,
+                                            uint32_t bufferCount,
+                                            PresentMode presentMode) { RN_NOT_IMPLEMENTED(); return nullptr; };
+        virtual void                    Destroy(SwapChain* swapChain) { RN_NOT_IMPLEMENTED(); }
 
         // Pipeline API
         virtual RasterPipeline          CreateRasterPipeline(const VertexRasterPipelineDesc& desc) { RN_NOT_IMPLEMENTED(); return RasterPipeline::Invalid; }

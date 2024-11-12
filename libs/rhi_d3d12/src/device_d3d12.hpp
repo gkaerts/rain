@@ -89,6 +89,15 @@ namespace rn::rhi
         DeviceCaps  Capabilities() const override { return _caps; }
         void        EndFrame();
 
+        SwapChain*  CreateSwapChain(
+                        void* windowHandle, 
+                        RenderTargetFormat format,
+                        uint32_t width, 
+                        uint32_t height,
+                        uint32_t bufferCount,
+                        PresentMode presentMode) override;
+        void        Destroy(SwapChain* swapChain) override;
+
         // Pipeline API
         RasterPipeline          CreateRasterPipeline(const VertexRasterPipelineDesc& desc) override;
         RasterPipeline          CreateRasterPipeline(const MeshRasterPipelineDesc& desc) override;
@@ -158,6 +167,7 @@ namespace rn::rhi
         void                    SubmitCommandLists(std::span<CommandList*> cls) override;
 
 
+        // Internal API
         ID3D12PipelineState*        Resolve(RasterPipeline pipeline) const;
         ID3D12PipelineState*        Resolve(ComputePipeline pipeline) const;
         ID3D12StateObject*          Resolve(RTPipeline pipeline) const;
@@ -172,6 +182,7 @@ namespace rn::rhi
         D3D12_CPU_DESCRIPTOR_HANDLE Resolve(DepthStencilView view) const;
 
         ID3D12CommandSignature*     CommandSignature(CommandSignatureType type) const { return _commandSignatures[int(type)]; }
+        Texture2D                   PlaceTexture2D(ID3D12Resource* resource);
 
         void* MapBuffer(Buffer buffer, uint64_t offset, uint64_t size);
         void  UnmapBuffer(Buffer buffer, uint64_t offset, uint64_t size);
@@ -179,6 +190,7 @@ namespace rn::rhi
         ID3D12Device10* D3DDevice() const { return _d3dDevice; }
 
         void QueueFrameFinalizerAction(FnOnFinalize fn, void* data);
+        void DrainGPU();
 
     private:
 

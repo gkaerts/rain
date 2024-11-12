@@ -2,6 +2,7 @@
 
 struct IDXGIFactory7;
 struct IDXGIAdapter4;
+struct IDXGISwapChain3;
 
 struct ID3D12Device10;
 struct ID3D12Debug3;

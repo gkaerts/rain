@@ -1520,5 +1520,10 @@ namespace rn::rhi
         return _dsvDescriptorHeap.Resolve(ResourceDescriptor(IndexFromHandle(view)));
     }
 
+    Texture2D DeviceD3D12::PlaceTexture2D(ID3D12Resource* resource)
+    {
+        return _texture2Ds.Store(std::move(resource));
+    }
+
 
 }
