@@ -1,9 +1,9 @@
 #pragma once
 
 #include "common/common.hpp"
+#include "common/memory/span.hpp"
 #include "rhi/limits.hpp"
 
-#include <span>
 #include <initializer_list>
 
 namespace rn::rhi
@@ -11,7 +11,7 @@ namespace rn::rhi
     enum class DepthFormat : uint32_t;
     enum class RenderTargetFormat : uint32_t;
 
-    using ShaderBytecode = std::span<const uint8_t>;
+    using ShaderBytecode = Span<const uint8_t>;
 
     enum class RasterizerState : uint32_t
     {

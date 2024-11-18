@@ -67,6 +67,9 @@ namespace rn::rhi
             ID3D12DescriptorHeap* samplerHeap);
         void Finalize();
 
+        void BeginEvent(const char* fmt) override;
+        void EndEvent() override;
+
         void BeginRenderPass(const RenderPassBeginDesc& desc) override;
         void EndRenderPass() override;
 
@@ -78,30 +81,30 @@ namespace rn::rhi
 
         void BindDrawIDBuffer(Buffer drawIDBuffer, uint32_t offsetInBuffer, uint32_t drawIDCount) override;
 
-        void Draw(std::span<DrawPacket> packets) override;
-        void DrawIndexed(std::span<IndexedDrawPacket> packets) override;
-        void DrawIndirect(std::span<IndirectDrawPacket> packets) override;
-        void DrawIndirectIndexed(std::span<IndirectIndexedDrawPacket> packets) override;
-        void Dispatch(std::span<DispatchPacket> packets) override;
-        void DispatchIndirect(std::span<IndirectDispatchPacket> packets) override;
-        void DispatchMesh(std::span<DispatchMeshPacket> packets) override;
-        void DispatchMeshIndirect(std::span<IndirectDispatchMeshPacket> packets) override;
-        void DispatchRays(std::span<DispatchRaysPacket> packets) override;
-        void DispatchRaysIndirect(std::span<IndirectDispatchRaysPacket> packets) override;
+        void Draw(Span<const DrawPacket> packets) override;
+        void DrawIndexed(Span<const IndexedDrawPacket> packets) override;
+        void DrawIndirect(Span<const IndirectDrawPacket> packets) override;
+        void DrawIndirectIndexed(Span<const IndirectIndexedDrawPacket> packets) override;
+        void Dispatch(Span<const DispatchPacket> packets) override;
+        void DispatchIndirect(Span<const IndirectDispatchPacket> packets) override;
+        void DispatchMesh(Span<const DispatchMeshPacket> packets) override;
+        void DispatchMeshIndirect(Span<const IndirectDispatchMeshPacket> packets) override;
+        void DispatchRays(Span<const DispatchRaysPacket> packets) override;
+        void DispatchRaysIndirect(Span<const IndirectDispatchRaysPacket> packets) override;
 
         void Barrier(const BarrierDesc& desc) override;
 
         TemporaryResource AllocateTemporaryResource(uint32_t sizeInBytes) override;
 
-        void UploadBufferData(Buffer destBuffer, uint32_t destBufferOffset, std::span<const unsigned char> data) override;
-        void UploadTextureData(Texture2D destTexture, uint32_t startMipIndex, std::span<const MipUploadDesc> mipDescs, std::span<const unsigned char> sourceData) override;
-        void UploadTextureData(Texture3D destTexture, uint32_t startMipIndex, std::span<const MipUploadDesc> mipDescs, std::span<const unsigned char> sourceData) override;
+        void UploadBufferData(Buffer destBuffer, uint32_t destBufferOffset, Span<const unsigned char> data) override;
+        void UploadTextureData(Texture2D destTexture, uint32_t startMipIndex, Span<const MipUploadDesc> mipDescs, Span<const unsigned char> sourceData) override;
+        void UploadTextureData(Texture3D destTexture, uint32_t startMipIndex, Span<const MipUploadDesc> mipDescs, Span<const unsigned char> sourceData) override;
 
         void CopyBufferRegion(Buffer dest, uint32_t destOffsetInBytes, Buffer src, uint32_t srcOffsetInBytes, uint32_t sizeInBytes) override;
         void CopyTexture(Texture2D dest, Texture2D src) override;
         void CopyTexture(Texture3D dest, Texture3D src) override;
 
-        void UploadTLASInstances(Buffer instanceBuffer, uint32_t offsetInInstanceBuffer, std::span<const TLASInstanceDesc> instances) override;
+        void UploadTLASInstances(Buffer instanceBuffer, uint32_t offsetInInstanceBuffer, Span<const TLASInstanceDesc> instances) override;
         void BuildBLAS(const BLASBuildDesc& desc) override;
         void BuildTLAS(const TLASBuildDesc& desc) override;
         void BuildShaderRecordTable(const SRTBuildDesc& desc) override;

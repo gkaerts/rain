@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/common.hpp"
+#include "common/memory/span.hpp"
 
 #include "rhi/handles.hpp"
 #include "rhi/pipeline.hpp"
@@ -126,15 +127,15 @@ namespace rn::rhi
         virtual ASFootprint             CalculateTLASFootprint(Buffer instanceBuffer, uint32_t offsetInInstanceBuffer, uint32_t instanceCount) { RN_NOT_IMPLEMENTED(); return {}; }
         virtual SRTFootprint            CalculateShaderRecordTableFootprint(const SRTFootprintDesc& desc) { RN_NOT_IMPLEMENTED(); return {}; }
 
-        virtual uint64_t                CalculateMipUploadDescs(const Texture2DDesc& desc, std::span<MipUploadDesc> outMipUploadDescs) { RN_NOT_IMPLEMENTED(); return 0; }
-        virtual uint64_t                CalculateMipUploadDescs(const Texture3DDesc& desc, std::span<MipUploadDesc> outMipUploadDescs) { RN_NOT_IMPLEMENTED(); return 0; }
+        virtual uint64_t                CalculateMipUploadDescs(const Texture2DDesc& desc, Span<MipUploadDesc> outMipUploadDescs) { RN_NOT_IMPLEMENTED(); return 0; }
+        virtual uint64_t                CalculateMipUploadDescs(const Texture3DDesc& desc, Span<MipUploadDesc> outMipUploadDescs) { RN_NOT_IMPLEMENTED(); return 0; }
 
         virtual ResourceFootprint       CalculateTLASInstanceBufferFootprint(uint32_t instanceCount) { RN_NOT_IMPLEMENTED(); return {}; }
-        virtual void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, std::span<unsigned char*> destData) { RN_NOT_IMPLEMENTED(); }
+        virtual void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, Span<unsigned char*> destData) { RN_NOT_IMPLEMENTED(); }
 
         // Command API
         virtual CommandList*            AllocateCommandList() { RN_NOT_IMPLEMENTED(); return nullptr; }
-        virtual void                    SubmitCommandLists(std::span<CommandList*> cls) { RN_NOT_IMPLEMENTED(); }
+        virtual void                    SubmitCommandLists(Span<CommandList*> cls) { RN_NOT_IMPLEMENTED(); }
     };
 
     void DestroyDevice(Device* device);

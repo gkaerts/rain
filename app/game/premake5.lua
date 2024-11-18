@@ -10,18 +10,11 @@ project "game"
         "src/**.cpp"
     }
 
-    includedirs {
-        "include",
-        "../../libs/common/include",
-        "../../libs/rhi/include",
-        "../../libs/rhi_d3d12/include",
-        "../../libs/application/include",
-        "../../contrib/submodules/googletest/googletest/include",
-        "../../contrib/submodules/spdlog/include",
-        "../../contrib/submodules/unordered_dense/include",
-        "../../contrib/submodules/enkiTS/src",
-        "../../contrib/submodules/hlslpp/include",
-    }
+    includedirs(RN_COMMON_INCLUDES)
+    includedirs(RN_RHI_INCLUDES)
+    includedirs(RN_RHI_D3D12_INCLUDES)
+    includedirs(RN_RENDER_GRAPH_INCLUDES)
+    includedirs(RN_APPLICATION_INCLUDES)
 
     libdirs {
         "%{wks.location}/%{cfg.buildcfg}"
@@ -29,4 +22,4 @@ project "game"
 
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
 
-    links { "rnCommon", "rnRHI", "rnRHID3D12", "rnApplication", "dxgi" }
+    links { "rnCommon", "rnRHI", "rnRHID3D12", "rnApplication", "rnRenderGraph", "dxgi", "WinPixEventRuntime" }

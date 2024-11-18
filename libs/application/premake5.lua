@@ -20,18 +20,15 @@ project "rnApplication"
         "include/**.h",
         "include/**.hpp"
     }
-    
-    includedirs {
-        "include",
-        "../../libs/common/include",
-        "../../libs/rhi/include",
-        "../../libs/rhi_d3d12/include",
-        "../../contrib/submodules/googletest/googletest/include",
-        "../../contrib/submodules/spdlog/include",
-        "../../contrib/submodules/unordered_dense/include",
-        "../../contrib/submodules/enkiTS/src",
-        "../../contrib/submodules/hlslpp/include",
+
+    RN_APPLICATION_INCLUDES = {
+        "%{wks.location}/../../libs/application/include",
     }
+
+    includedirs(RN_COMMON_INCLUDES)
+    includedirs(RN_RHI_INCLUDES)
+    includedirs(RN_RHI_D3D12_INCLUDES)
+    includedirs(RN_APPLICATION_INCLUDES)
 
     libdirs {
         "%{wks.location}/%{cfg.buildcfg}"

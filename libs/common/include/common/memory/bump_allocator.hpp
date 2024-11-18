@@ -27,6 +27,12 @@ namespace rn
             return static_cast<T*>(Allocate(sizeof(T), alignof(T)));
         }
 
+        template <typename T>
+        T* AllocatePODArray(size_t size)
+        {
+            return static_cast<T*>(Allocate(sizeof(T) * size, alignof(T)));
+        }
+
         void Purge();
 
         void Rewind(size_t size);

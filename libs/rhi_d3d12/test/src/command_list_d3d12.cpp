@@ -95,7 +95,7 @@ TEST_F(CommandListD3D12Tests, CanUploadTexture2D)
             {
                 .fromStage = rhi::PipelineSyncStage::None,
                 .toStage = rhi::PipelineSyncStage::Copy,
-                .fromAccess = rhi::PipelineAccess::NoAccess,
+                .fromAccess = rhi::PipelineAccess::None,
                 .toAccess = rhi::PipelineAccess::CopyWrite,
                 .fromLayout = rhi::TextureLayout::Undefined,
                 .toLayout = rhi::TextureLayout::CopyWrite,
@@ -145,7 +145,7 @@ TEST_F(CommandListD3D12Tests, CanUploadTexture3D)
             {
                 .fromStage = rhi::PipelineSyncStage::None,
                 .toStage = rhi::PipelineSyncStage::Copy,
-                .fromAccess = rhi::PipelineAccess::NoAccess,
+                .fromAccess = rhi::PipelineAccess::None,
                 .toAccess = rhi::PipelineAccess::CopyWrite,
                 .fromLayout = rhi::TextureLayout::Undefined,
                 .toLayout = rhi::TextureLayout::CopyWrite,

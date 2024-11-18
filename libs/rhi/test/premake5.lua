@@ -12,16 +12,9 @@ project "rhiTests"
         "../../../libs/test/src/test_main.cpp",
     }
 
-    includedirs {
-        "../../../libs/common/include",
-        "../../../libs/rhi/include",
-        "../../../contrib/submodules/googletest/googletest/include",
-        "../../../contrib/submodules/spdlog/include",
-        "../../../contrib/submodules/unordered_dense/include",
-        "../../../contrib/submodules/enkiTS/src",
-        "../../../contrib/submodules/hlslpp/include",
-
-    }
+    includedirs(RN_COMMON_INCLUDES)
+    includedirs(RN_RHI_INCLUDES)
+    includedirs(RN_GTEST_INCLUDES)
 
     libdirs {
         "%{wks.location}/%{cfg.buildcfg}"

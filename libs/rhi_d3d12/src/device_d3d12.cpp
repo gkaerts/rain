@@ -445,9 +445,9 @@ namespace rn::rhi
             _samplerDescriptorHeap.D3DHeap());
     }
 
-    void DeviceD3D12::SubmitCommandLists(std::span<CommandList*> cls)
+    void DeviceD3D12::SubmitCommandLists(Span<CommandList*> cls)
     {
-        std::span<CommandListD3D12*> d3d12CLs(reinterpret_cast<CommandListD3D12**>(cls.data()), cls.size());
+        Span<CommandListD3D12*> d3d12CLs(reinterpret_cast<CommandListD3D12**>(cls.data()), cls.size());
         for (CommandListD3D12* cl : d3d12CLs)
         {
             cl->Finalize();

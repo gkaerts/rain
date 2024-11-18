@@ -16,14 +16,16 @@ project "rnCommon"
         "include/**.h",
         "include/**.hpp"
     }
-    
-    includedirs {
-        "include",
-        "../../contrib/submodules/spdlog/include",
-        "../../contrib/submodules/unordered_dense/include",
-        "../../contrib/submodules/enkiTS/src",
-        "../../contrib/submodules/hlslpp/include",
+
+    RN_COMMON_INCLUDES = {
+        "%{wks.location}/../../libs/common/include",
+        "%{wks.location}/../../contrib/submodules/spdlog/include",
+        "%{wks.location}/../../contrib/submodules/unordered_dense/include",
+        "%{wks.location}/../../contrib/submodules/enkiTS/src",
+        "%{wks.location}/../../contrib/submodules/hlslpp/include",
     }
+    
+    includedirs(RN_COMMON_INCLUDES)
 
     libdirs {
         "%{wks.location}/%{cfg.buildcfg}"

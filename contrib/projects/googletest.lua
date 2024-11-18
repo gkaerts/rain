@@ -10,6 +10,11 @@ project "googletest"
     local project_dir = "../submodules/googletest/googletest"
     local source_dir = project_dir .. "/src"
     local include_dir = project_dir .. "/include"
+
+    RN_GTEST_INCLUDES = {
+        "%{wks.location}/../../contrib/submodules/googletest/googletest/include"
+    }
+
     files {
         source_dir .. "/gtest-all.cc",
         source_dir .. "/**.h",

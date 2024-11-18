@@ -1296,7 +1296,7 @@ namespace rn::rhi
         uint64_t CalculateGenericMipUploadDescs(
             ID3D12Device10* device,
             const D3D12_RESOURCE_DESC1& resourceDesc,
-            std::span<MipUploadDesc> outMipUploadDescs)
+            Span<MipUploadDesc> outMipUploadDescs)
         {
             constexpr uint32_t BATCH_SIZE = 16;
             D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprints[BATCH_SIZE] = {};
@@ -1346,7 +1346,7 @@ namespace rn::rhi
         }
     }
 
-    uint64_t DeviceD3D12::CalculateMipUploadDescs(const Texture2DDesc& desc, std::span<MipUploadDesc> outMipUploadDescs)
+    uint64_t DeviceD3D12::CalculateMipUploadDescs(const Texture2DDesc& desc, Span<MipUploadDesc> outMipUploadDescs)
     {
         D3D12_RESOURCE_FLAGS resourceFlags = ToD3D12ResourceFlags(desc.flags);
         DXGI_FORMAT dxgiFormat = ToDXGIFormat(desc.format);
@@ -1377,7 +1377,7 @@ namespace rn::rhi
         return CalculateGenericMipUploadDescs(_d3dDevice, resourceDesc, outMipUploadDescs);
     }
 
-    uint64_t DeviceD3D12::CalculateMipUploadDescs(const Texture3DDesc& desc, std::span<MipUploadDesc> outMipUploadDescs)
+    uint64_t DeviceD3D12::CalculateMipUploadDescs(const Texture3DDesc& desc, Span<MipUploadDesc> outMipUploadDescs)
     {
         D3D12_RESOURCE_DESC1 resourceDesc = {
             .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE3D,
@@ -1402,7 +1402,7 @@ namespace rn::rhi
         };
     }
 
-    void DeviceD3D12::PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, std::span<unsigned char*> destData)
+    void DeviceD3D12::PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, Span<unsigned char*> destData)
     {
         RN_ASSERT(destData.size() >= instances.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC));
         constexpr uint32_t MAX_INSTANCE_BATCH_SIZE = 32;

@@ -70,6 +70,58 @@ TEST_F(DeviceD3D12Tests, CanCreateAndDestroyRasterPipelines)
     device->Destroy(rasterPipeline);
 }
 
+TEST_F(DeviceD3D12Tests, RasterPipelineConfigurationMatrixTest)
+{
+
+    rn::rhi::VertexRasterPipelineDesc desc = {
+        .flags = rhi::RasterPipelineFlags::None,
+        .vertexShaderBytecode = test_shaders::test_shaders_vs,
+        .pixelShaderBytecode = test_shaders::test_shaders_ps,
+    };
+
+    const uint32_t rasterizerStateCount = uint32_t(rhi::RasterizerState::Count);
+    const uint32_t blendStateCount = uint32_t(rhi::BlendState::Count);
+    const uint32_t depthStateCount = uint32_t(rhi::DepthState::Count);
+    const uint32_t depthFormatCount = uint32_t(rhi::DepthFormat::Count);
+    const uint32_t rtFormatCount = uint32_t(rhi::RenderTargetFormat::Count);
+
+    for (uint32_t iRasterizerState = 0; iRasterizerState < rasterizerStateCount; ++iRasterizerState)
+    {
+        desc.rasterizerState = rhi::RasterizerState(iRasterizerState);
+        for (uint32_t iBlendState = 0; iBlendState < blendStateCount; ++iBlendState)
+        {
+            desc.blendState = rhi::BlendState(iBlendState);
+            for (uint32_t iDepthState = 0; iDepthState < depthStateCount; ++iDepthState)
+            {
+                desc.depthState = rhi::DepthState(iDepthState);
+                for (uint32_t iDepthFormat = 0; iDepthFormat < depthFormatCount; ++iDepthFormat)
+                {
+                    desc.depthFormat = rhi::DepthFormat(iDepthFormat);
+                    for (uint32_t iRTFormat = 1; iRTFormat < rtFormatCount; ++iRTFormat)
+                    {
+                        desc.renderTargetFormats = 
+                        {
+                            rhi::RenderTargetFormat(iRTFormat)
+                        };
+
+                        if ((rhi::RenderTargetFormat(iRTFormat) == rhi::RenderTargetFormat::RG16Uint ||
+                             rhi::RenderTargetFormat(iRTFormat) == rhi::RenderTargetFormat::R32Uint) &&
+                             desc.blendState != rhi::BlendState::Disabled)
+                        {
+                            continue;
+                        }
+
+                        rhi::RasterPipeline rasterPipeline = device->CreateRasterPipeline(desc);
+                        EXPECT_TRUE(IsValid(rasterPipeline));
+
+                        device->Destroy(rasterPipeline);
+                    }
+                }
+            }
+        }
+    }
+}
+
 TEST_F(DeviceD3D12Tests, CanCreateAndDestroyComputePipelines)
 {
     rhi::ComputePipeline computePipeline = device->CreateComputePipeline({

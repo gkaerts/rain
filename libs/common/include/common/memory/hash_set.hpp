@@ -17,6 +17,6 @@ namespace rn
               class Hash = ankerl::unordered_dense::hash<Key>>
     HashSet<Key, Hash> MakeHashSet(MemoryCategoryID cat)
     {
-        return HashSet<Key, T, Hash>(TrackedAllocatorSTL<T>(cat));
+        return HashSet<Key, Hash>(TrackedAllocatorSTL<Key>(cat));
     }
 }

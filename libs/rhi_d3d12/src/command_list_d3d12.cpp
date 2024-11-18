@@ -4,6 +4,8 @@
 #include "rhi/limits.hpp"
 #include "common/memory/vector.hpp"
 
+#include "WinPixEventRuntime/pix3.h"
+
 #include "d3d12.h"
 
 namespace rn::rhi
@@ -153,6 +155,17 @@ namespace rn::rhi
         _uploadAllocator = nullptr;
         _readbackAllocator = nullptr;
     }
+
+    void CommandListD3D12::BeginEvent(const char* fmt)
+    {
+        PIXBeginEvent(_cl, 0, fmt);
+    }
+
+    void CommandListD3D12::EndEvent()
+    {
+        PIXEndEvent(_cl);
+    }
+
 
     void CommandListD3D12::BeginRenderPass(const RenderPassBeginDesc& desc)
     {
@@ -381,7 +394,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::Draw(std::span<DrawPacket> packets)
+    void CommandListD3D12::Draw(Span<const DrawPacket> packets)
     {
         for (const DrawPacket& draw : packets)
         {
@@ -390,7 +403,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::DrawIndexed(std::span<IndexedDrawPacket> packets)
+    void CommandListD3D12::DrawIndexed(Span<const IndexedDrawPacket> packets)
     {
         for (const IndexedDrawPacket& draw : packets)
         {
@@ -400,7 +413,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::DrawIndirect(std::span<IndirectDrawPacket> packets)
+    void CommandListD3D12::DrawIndirect(Span<const IndirectDrawPacket> packets)
     {
         ID3D12CommandSignature* signature = _device->CommandSignature(CommandSignatureType::Draw);
         for (const IndirectDrawPacket& draw : packets)
@@ -412,7 +425,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::DrawIndirectIndexed(std::span<IndirectIndexedDrawPacket> packets)
+    void CommandListD3D12::DrawIndirectIndexed(Span<const IndirectIndexedDrawPacket> packets)
     {
         ID3D12CommandSignature* signature = _device->CommandSignature(CommandSignatureType::DrawIndexed);
         for (const IndirectIndexedDrawPacket& draw : packets)
@@ -425,7 +438,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::Dispatch(std::span<DispatchPacket> packets)
+    void CommandListD3D12::Dispatch(Span<const DispatchPacket> packets)
     {
         for (const DispatchPacket& dispatch : packets)
         {
@@ -434,7 +447,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::DispatchIndirect(std::span<IndirectDispatchPacket> packets)
+    void CommandListD3D12::DispatchIndirect(Span<const IndirectDispatchPacket> packets)
     {
         ID3D12CommandSignature* signature = _device->CommandSignature(CommandSignatureType::Dispatch);
         for (const IndirectDispatchPacket& dispatch : packets)
@@ -446,7 +459,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::DispatchMesh(std::span<DispatchMeshPacket> packets)
+    void CommandListD3D12::DispatchMesh(Span<const DispatchMeshPacket> packets)
     {
         for (const DispatchMeshPacket& dispatch : packets)
         {
@@ -455,7 +468,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::DispatchMeshIndirect(std::span<IndirectDispatchMeshPacket> packets)
+    void CommandListD3D12::DispatchMeshIndirect(Span<const IndirectDispatchMeshPacket> packets)
     {
         ID3D12CommandSignature* signature = _device->CommandSignature(CommandSignatureType::DispatchMesh);
         for (const IndirectDispatchMeshPacket& dispatch : packets)
@@ -467,7 +480,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::DispatchRays(std::span<DispatchRaysPacket> packets)
+    void CommandListD3D12::DispatchRays(Span<const DispatchRaysPacket> packets)
     {
         for (const DispatchRaysPacket& packet : packets)
         {
@@ -510,7 +523,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::DispatchRaysIndirect(std::span<IndirectDispatchRaysPacket> packets)
+    void CommandListD3D12::DispatchRaysIndirect(Span<const IndirectDispatchRaysPacket> packets)
     {
         ID3D12CommandSignature* signature = _device->CommandSignature(CommandSignatureType::DispatchRays);
         for (const IndirectDispatchRaysPacket& packet : packets)
@@ -551,6 +564,11 @@ namespace rn::rhi
 
         D3D12_BARRIER_ACCESS ToBarrierAccess(PipelineAccess access)
         {
+            if (access == PipelineAccess::None)
+            {
+                return D3D12_BARRIER_ACCESS_NO_ACCESS;
+            }
+
             D3D12_BARRIER_ACCESS d3dAccess = D3D12_BARRIER_ACCESS_COMMON;
 
             #define MATCH_FLAG(d3dFlag, rnFlag) if (TestFlag(access, rnFlag)) { d3dAccess |= d3dFlag; }
@@ -566,7 +584,6 @@ namespace rn::rhi
             MATCH_FLAG(D3D12_BARRIER_ACCESS_COPY_SOURCE,            PipelineAccess::CopyRead);
             MATCH_FLAG(D3D12_BARRIER_ACCESS_COPY_DEST,              PipelineAccess::CopyWrite);
             MATCH_FLAG(D3D12_BARRIER_ACCESS_CONSTANT_BUFFER,        PipelineAccess::UniformBuffer);
-            MATCH_FLAG(D3D12_BARRIER_ACCESS_NO_ACCESS,              PipelineAccess::NoAccess);
 
             MATCH_FLAG(D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ,     PipelineAccess::AccelerationStructureRead);
             MATCH_FLAG(D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE,    PipelineAccess::AccelerationStructureWrite);
@@ -722,7 +739,7 @@ namespace rn::rhi
         return _uploadAllocator->AllocateTemporaryResource(sizeInBytes, 256);
     }
 
-    void CommandListD3D12::UploadBufferData(Buffer destBuffer, uint32_t destBufferOffset, std::span<const unsigned char> data)
+    void CommandListD3D12::UploadBufferData(Buffer destBuffer, uint32_t destBufferOffset, Span<const unsigned char> data)
     {
         ID3D12Resource* resource = _device->Resolve(destBuffer);
 
@@ -755,7 +772,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::UploadTextureData(Texture2D destTexture, uint32_t startMipIndex, std::span<const MipUploadDesc> mipDescs, std::span<const unsigned char> sourceData)
+    void CommandListD3D12::UploadTextureData(Texture2D destTexture, uint32_t startMipIndex, Span<const MipUploadDesc> mipDescs, Span<const unsigned char> sourceData)
     {
         ID3D12Resource* texResource = _device->Resolve(destTexture);
         TemporaryResource tempResource = AllocateTemporaryResource(uint32_t(sourceData.size()));
@@ -799,7 +816,7 @@ namespace rn::rhi
         }
     }
 
-    void CommandListD3D12::UploadTextureData(Texture3D destTexture, uint32_t startMipIndex, std::span<const MipUploadDesc> mipDescs, std::span<const unsigned char> sourceData)
+    void CommandListD3D12::UploadTextureData(Texture3D destTexture, uint32_t startMipIndex, Span<const MipUploadDesc> mipDescs, Span<const unsigned char> sourceData)
     {
         ID3D12Resource* texResource = _device->Resolve(destTexture);
         TemporaryResource tempResource = AllocateTemporaryResource(uint32_t(sourceData.size()));
@@ -864,7 +881,7 @@ namespace rn::rhi
         _cl->CopyResource(destTexture, srcTexture);
     }
 
-    void CommandListD3D12::UploadTLASInstances(Buffer instanceBuffer, uint32_t offsetInInstanceBuffer, std::span<const TLASInstanceDesc> instances)
+    void CommandListD3D12::UploadTLASInstances(Buffer instanceBuffer, uint32_t offsetInInstanceBuffer, Span<const TLASInstanceDesc> instances)
     {
         MemoryScope SCOPE;
 
@@ -1025,7 +1042,7 @@ namespace rn::rhi
     {
         struct ReadbackData
         {
-            std::span<const unsigned char> data;
+            Span<const unsigned char> data;
             FnOnReadback onReadback;
             void* userData;
         };
@@ -1044,7 +1061,7 @@ namespace rn::rhi
         // Readbacks *should* be infrequent, so this won't hurt too bad, but it'd be nice to replace this with a bump allocator later
         ReadbackData* readbackData = TrackedNew<ReadbackData>(MemoryCategory::RHI);
         *readbackData = {
-            .data = std::span<const unsigned char>(static_cast<const unsigned char*>(readbackResource.cpuPtr), readbackResource.sizeInBytes),
+            .data = Span<const unsigned char>(static_cast<const unsigned char*>(readbackResource.cpuPtr), readbackResource.sizeInBytes),
             .onReadback = onReadback,
             .userData = userData
         };
@@ -1115,7 +1132,7 @@ namespace rn::rhi
 
             ReadbackData* readbackData = TrackedNew<ReadbackData>(MemoryCategory::RHI);
             *readbackData = {
-                .data = std::span<const unsigned char>(static_cast<const unsigned char*>(readbackResource.cpuPtr), readbackResource.sizeInBytes),
+                .data = Span<const unsigned char>(static_cast<const unsigned char*>(readbackResource.cpuPtr), readbackResource.sizeInBytes),
                 .onReadback = onReadback,
                 .userData = userData
             };

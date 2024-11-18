@@ -25,6 +25,11 @@ namespace rn
 
     void* BumpAllocator::Allocate(size_t size, size_t alignment)
     {
+        if (!size)
+        {
+            return nullptr;
+        }
+
         char* physicalCurrent = static_cast<char*>(AlignPtr(_physicalCurrent, alignment));
         if (physicalCurrent + size > _physicalEnd)
         {

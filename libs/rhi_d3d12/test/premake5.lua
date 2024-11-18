@@ -12,16 +12,13 @@ project "rhiD3D12Tests"
         "../../../libs/test/src/test_main.cpp",
     }
 
+    includedirs(RN_COMMON_INCLUDES)
+    includedirs(RN_RHI_INCLUDES)
+    includedirs(RN_RHI_D3D12_INCLUDES)
+    includedirs(RN_GTEST_INCLUDES)
+
     local GENERATED_FILE_PATH = "%{prj.location}/generated/%{cfg.buildcfg}/%{prj.name}"
     includedirs {
-        "../../../libs/common/include",
-        "../../../libs/rhi/include",
-        "../../../libs/rhi_d3d12/include",
-        "../../../contrib/submodules/googletest/googletest/include",
-        "../../../contrib/submodules/spdlog/include",
-        "../../../contrib/submodules/unordered_dense/include",
-        "../../../contrib/submodules/enkiTS/src",
-        "../../../contrib/submodules/hlslpp/include",
         GENERATED_FILE_PATH
     }
 
@@ -48,4 +45,4 @@ project "rhiD3D12Tests"
 
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
 
-    links { "googletest", "rnCommon", "rnRHI", "rnRHID3D12", "dxgi" }
+    links { "googletest", "rnCommon", "rnRHI", "rnRHID3D12", "dxgi", "WinPixEventRuntime" }

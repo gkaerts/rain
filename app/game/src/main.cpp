@@ -5,6 +5,8 @@
 #include "rhi/device.hpp"
 #include "rhi/command_list.hpp"
 
+#include "rg/render_graph.hpp"
+
 using namespace rn;
 int main(int argc, char* argv[])
 {
@@ -24,6 +26,7 @@ int main(int argc, char* argv[])
 
     app::Application app(config);
     
+    rg::RenderGraph renderGraph(app.RHIDevice());
 
     while (true)
     {
@@ -41,54 +44,41 @@ int main(int argc, char* argv[])
             swapChain->WaitForRender();
 
             uint2 drawableSize = window->DrawableSize();
-            rhi::CommandList* cl = device->AllocateCommandList();
-
-            cl->Barrier({
-                .texture2DBarriers = {{
-                    .fromStage = rhi::PipelineSyncStage::None,
-                    .toStage = rhi::PipelineSyncStage::RenderTargetOutput,
-                    .fromAccess = rhi::PipelineAccess::NoAccess,
-                    .toAccess = rhi::PipelineAccess::RenderTargetWrite,
-                    .fromLayout = rhi::TextureLayout::Present,
-                    .toLayout = rhi::TextureLayout::RenderTarget,
-                    .handle = swapChain->CurrentBackBuffer().texture,
-                    .numMips = 1,
-                    .numArraySlices = 1
-                }}
+            renderGraph.Reset({
+                .x = 0,
+                .y = 0,
+                .width = drawableSize.x,
+                .height = drawableSize.y
             });
 
-            cl->BeginRenderPass({
-                .viewport = { 0, 0, drawableSize.x, drawableSize.y },
+            rhi::BackBuffer currentBackBuffer = swapChain->CurrentBackBuffer();
+            rg::Texture2D rgBackBuffer = renderGraph.RegisterTexture2D({
+                .texture = currentBackBuffer.texture,
+                .rtv = currentBackBuffer.view,
+                .clearValue = rhi::ClearColor(1.0f, 0.0f, 0.0f, 1.0f),
+                .lastSyncStage = rhi::PipelineSyncStage::None,
+                .lastAccess = rhi::PipelineAccess::None,
+                .lastLayout = rhi::TextureLayout::Present
+            });
 
-                .renderTargets = {{
-                    .view = swapChain->CurrentBackBuffer().view,
-                    .loadOp = rhi::LoadOp::Clear,
-                    .clearValue = rhi::ClearColor(1.0f, 0.0f, 0.0f, 1.0f)
-                }},
-
-                .depthTarget = {
-                    .view = rhi::DepthStencilView::Invalid
+            renderGraph.AddRenderPass<void>({
+                .name = "Clear back buffer",
+                .flags = rg::RenderPassFlags::IsSmall,
+                .colorAttachments = {
+                    { .texture = rgBackBuffer, .loadOp = rhi::LoadOp::Clear }
                 }
-            });
+            }, nullptr);
 
+            renderGraph.AddRenderPass<void>({
+                .name = "Make back buffer presentable",
+                .flags = rg::RenderPassFlags::IsSmall,
+                .texture2Ds = {
+                    rg::Present(rgBackBuffer)
+                }
+            }, nullptr);
 
-            cl->EndRenderPass();
-
-            cl->Barrier({
-                .texture2DBarriers = {{
-                    .fromStage = rhi::PipelineSyncStage::RenderTargetOutput,
-                    .toStage = rhi::PipelineSyncStage::None,
-                    .fromAccess = rhi::PipelineAccess::RenderTargetWrite,
-                    .toAccess = rhi::PipelineAccess::NoAccess,
-                    .fromLayout = rhi::TextureLayout::RenderTarget,
-                    .toLayout = rhi::TextureLayout::Present,
-                    .handle = swapChain->CurrentBackBuffer().texture,
-                    .numMips = 1,
-                    .numArraySlices = 1
-                }}
-            });
-
-            device->SubmitCommandLists({&cl, 1});
+            renderGraph.Build();
+            renderGraph.Execute(rg::RenderGraphExecutionFlags::ForceSingleThreaded);
 
             device->EndFrame();
             swapChain->Present();

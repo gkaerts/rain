@@ -7,6 +7,7 @@
 #include "common/memory/object_pool.hpp"
 #include "common/memory/vector.hpp"
 #include "common/memory/hash_map.hpp"
+#include "common/memory/span.hpp"
 
 #include "command_list_d3d12.hpp"
 #include "resource_d3d12.hpp"
@@ -157,14 +158,14 @@ namespace rn::rhi
         ASFootprint             CalculateBLASFootprint(std::initializer_list<BLASTriangleGeometryDesc> geometryDescs) override;
         ASFootprint             CalculateTLASFootprint(Buffer instanceBuffer, uint32_t offsetInInstanceBuffer, uint32_t instanceCount) override;
         SRTFootprint            CalculateShaderRecordTableFootprint(const SRTFootprintDesc& desc) override;
-        uint64_t                CalculateMipUploadDescs(const Texture2DDesc& desc, std::span<MipUploadDesc> outMipUploadDescs) override;
-        uint64_t                CalculateMipUploadDescs(const Texture3DDesc& desc, std::span<MipUploadDesc> outMipUploadDescs) override;
+        uint64_t                CalculateMipUploadDescs(const Texture2DDesc& desc, Span<MipUploadDesc> outMipUploadDescs) override;
+        uint64_t                CalculateMipUploadDescs(const Texture3DDesc& desc, Span<MipUploadDesc> outMipUploadDescs) override;
         ResourceFootprint       CalculateTLASInstanceBufferFootprint(uint32_t instanceCount) override;
-        void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, std::span<unsigned char*> destData) override;
+        void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, Span<unsigned char*> destData) override;
 
         // Command API
         CommandList*            AllocateCommandList() override;
-        void                    SubmitCommandLists(std::span<CommandList*> cls) override;
+        void                    SubmitCommandLists(Span<CommandList*> cls) override;
 
 
         // Internal API

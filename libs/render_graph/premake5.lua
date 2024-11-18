@@ -1,4 +1,4 @@
-project "rnRHI"
+project "rnRenderGraph"
     kind "StaticLib"
     language "C++"
     cppdialect "C++20"
@@ -13,12 +13,13 @@ project "rnRHI"
         "include/**.hpp", 
     }
 
-    RN_RHI_INCLUDES = {
-        "%{wks.location}/../../libs/rhi/include",
+    RN_RENDER_GRAPH_INCLUDES = {
+        "%{wks.location}/../../libs/render_graph/include"
     }
 
     includedirs(RN_COMMON_INCLUDES)
     includedirs(RN_RHI_INCLUDES)
+    includedirs(RN_RENDER_GRAPH_INCLUDES)
 
     libdirs {
         "%{wks.location}/%{cfg.buildcfg}"
@@ -26,7 +27,7 @@ project "rnRHI"
 
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
     
-    links { "rnCommon" }
+    links { "rnCommon", "rnRHI" }
 
 if BUILD_PROPERTIES.IncludeTestsInBuild then
     include "test"
