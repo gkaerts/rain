@@ -12,11 +12,11 @@ Additionally I'd like to integrate my TBDR-specific Vulkan rendering engine into
 * [**RHI**](https://github.com/gkaerts/rain/tree/master/libs/rhi): Low-level rendering hardware interface
 * [**D3D12 RHI**](https://github.com/gkaerts/rain/tree/master/libs/rhi_d3d12): D3D12 implementation of the RHI interface
 * [**Application**](https://github.com/gkaerts/rain/tree/master/libs/application): Event processing, window management
+* [**Render Graph**](https://github.com/gkaerts/rain/tree/master/libs/render_graph): Simple frame graph style render pass management
 
 ## Coming Up
 
 Here's an overview of what I'll be working on next:
-* **Render Pass Library**: Simple frame graph style render pass management (although it's technically not a graph!) - **Not started**
 * **Vulkan RHI Library**: Vulkan implementation of the RHI interface - **In Progress**
 * **Asset Library**: Library for defining, loading, baking and packaging assets - **Not started**
 * **Editor**: ImGui-based editor framework for manipulating scenes - **Not started**
