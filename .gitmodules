@@ -13,3 +13,9 @@
 [submodule "contrib/submodules/hlslpp"]
 	path = contrib/submodules/hlslpp
 	url = https://github.com/redorav/hlslpp
+[submodule "contrib/submodules/mio"]
+	path = contrib/submodules/mio
+	url = https://github.com/vimpunk/mio
+[submodule "contrib/submodules/flatbuffers"]
+	path = contrib/submodules/flatbuffers
+	url = https://github.com/google/flatbuffers
