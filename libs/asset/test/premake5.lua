@@ -1,4 +1,4 @@
-project "game"
+project "assetTests"
 
     kind "ConsoleApp"
     language "C++"
@@ -7,15 +7,13 @@ project "game"
 
     files {
         "src/**.hpp",
-        "src/**.cpp"
+        "src/**.cpp",
+        "../../../libs/test/src/test_main.cpp",
     }
 
     includedirs(RN_COMMON_INCLUDES)
-    includedirs(RN_RHI_INCLUDES)
-    includedirs(RN_RHI_D3D12_INCLUDES)
-    includedirs(RN_RENDER_GRAPH_INCLUDES)
-    includedirs(RN_APPLICATION_INCLUDES)
     includedirs(RN_ASSET_INCLUDES)
+    includedirs(RN_GTEST_INCLUDES)
 
     libdirs {
         "%{wks.location}/%{cfg.buildcfg}"
@@ -23,4 +21,4 @@ project "game"
 
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
 
-    links { "rnCommon", "rnRHI", "rnRHID3D12", "rnApplication", "rnRenderGraph", "rnAsset", "dxgi", "WinPixEventRuntime" }
+    links { "googletest", "rnCommon", "rnAsset"}

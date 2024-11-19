@@ -123,7 +123,7 @@ namespace rn::rhi
 
         virtual ResourceFootprint       CalculateTextureFootprint(const Texture2DDesc& desc) { RN_NOT_IMPLEMENTED(); return {}; }
         virtual ResourceFootprint       CalculateTextureFootprint(const Texture3DDesc& desc) { RN_NOT_IMPLEMENTED(); return {}; }
-        virtual ASFootprint             CalculateBLASFootprint(std::initializer_list<BLASTriangleGeometryDesc> geometryDescs) { RN_NOT_IMPLEMENTED(); return {}; }
+        virtual ASFootprint             CalculateBLASFootprint(Span<const BLASTriangleGeometryDesc> geometryDescs) { RN_NOT_IMPLEMENTED(); return {}; }
         virtual ASFootprint             CalculateTLASFootprint(Buffer instanceBuffer, uint32_t offsetInInstanceBuffer, uint32_t instanceCount) { RN_NOT_IMPLEMENTED(); return {}; }
         virtual SRTFootprint            CalculateShaderRecordTableFootprint(const SRTFootprintDesc& desc) { RN_NOT_IMPLEMENTED(); return {}; }
 
@@ -131,7 +131,7 @@ namespace rn::rhi
         virtual uint64_t                CalculateMipUploadDescs(const Texture3DDesc& desc, Span<MipUploadDesc> outMipUploadDescs) { RN_NOT_IMPLEMENTED(); return 0; }
 
         virtual ResourceFootprint       CalculateTLASInstanceBufferFootprint(uint32_t instanceCount) { RN_NOT_IMPLEMENTED(); return {}; }
-        virtual void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, Span<unsigned char*> destData) { RN_NOT_IMPLEMENTED(); }
+        virtual void                    PopulateTLASInstances(Span<const TLASInstanceDesc> instances, Span<unsigned char*> destData) { RN_NOT_IMPLEMENTED(); }
 
         // Command API
         virtual CommandList*            AllocateCommandList() { RN_NOT_IMPLEMENTED(); return nullptr; }

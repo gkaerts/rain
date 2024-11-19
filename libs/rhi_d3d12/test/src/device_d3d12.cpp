@@ -72,7 +72,6 @@ TEST_F(DeviceD3D12Tests, CanCreateAndDestroyRasterPipelines)
 
 TEST_F(DeviceD3D12Tests, RasterPipelineConfigurationMatrixTest)
 {
-
     rn::rhi::VertexRasterPipelineDesc desc = {
         .flags = rhi::RasterPipelineFlags::None,
         .vertexShaderBytecode = test_shaders::test_shaders_vs,
@@ -99,13 +98,14 @@ TEST_F(DeviceD3D12Tests, RasterPipelineConfigurationMatrixTest)
                     desc.depthFormat = rhi::DepthFormat(iDepthFormat);
                     for (uint32_t iRTFormat = 1; iRTFormat < rtFormatCount; ++iRTFormat)
                     {
-                        desc.renderTargetFormats = 
-                        {
+                        rhi::RenderTargetFormat rtFormats[] = { 
                             rhi::RenderTargetFormat(iRTFormat)
                         };
 
-                        if ((rhi::RenderTargetFormat(iRTFormat) == rhi::RenderTargetFormat::RG16Uint ||
-                             rhi::RenderTargetFormat(iRTFormat) == rhi::RenderTargetFormat::R32Uint) &&
+                        desc.renderTargetFormats = rtFormats;
+
+                        if ((rtFormats[0] == rhi::RenderTargetFormat::RG16Uint ||
+                             rtFormats[0] == rhi::RenderTargetFormat::R32Uint) &&
                              desc.blendState != rhi::BlendState::Disabled)
                         {
                             continue;

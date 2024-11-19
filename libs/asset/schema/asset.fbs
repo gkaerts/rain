@@ -1,0 +1,10 @@
+namespace rn.schema;
+
+table Asset
+{
+    references: [string];
+    asset_data: [ubyte];
+}
+
+root_type Asset;
+file_identifier "ASST";

@@ -35,13 +35,13 @@ namespace rn::rg
         const char* name;
         RenderPassFlags flags;
 
-        std::initializer_list<TextureAttachment> colorAttachments;
+        Span<const TextureAttachment> colorAttachments;
         TextureAttachment depthAttachment;
 
-        std::initializer_list<Texture2DUsage> texture2Ds;
-        std::initializer_list<Texture3DUsage> texture3Ds;
-        std::initializer_list<BufferUsage> buffers;
-        std::initializer_list<rg::TLAS> tlases;
+        Span<const Texture2DUsage> texture2Ds;
+        Span<const Texture3DUsage> texture3Ds;
+        Span<const BufferUsage> buffers;
+        Span<const rg::TLAS> tlases;
 
         FnExecuteRenderPass<UserData> onExecute;
     };

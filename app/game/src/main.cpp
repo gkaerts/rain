@@ -58,7 +58,8 @@ int main(int argc, char* argv[])
                 .clearValue = rhi::ClearColor(1.0f, 0.0f, 0.0f, 1.0f),
                 .lastSyncStage = rhi::PipelineSyncStage::None,
                 .lastAccess = rhi::PipelineAccess::None,
-                .lastLayout = rhi::TextureLayout::Present
+                .lastLayout = rhi::TextureLayout::Present,
+                .name = "Swap chain back buffer"
             });
 
             renderGraph.AddRenderPass<void>({

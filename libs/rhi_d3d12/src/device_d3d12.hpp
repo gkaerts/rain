@@ -155,13 +155,13 @@ namespace rn::rhi
         ResourceFootprint       CalculateTextureFootprint(const Texture2DDesc& desc) override;
         ResourceFootprint       CalculateTextureFootprint(const Texture3DDesc& desc) override;
 
-        ASFootprint             CalculateBLASFootprint(std::initializer_list<BLASTriangleGeometryDesc> geometryDescs) override;
+        ASFootprint             CalculateBLASFootprint(Span<const BLASTriangleGeometryDesc> geometryDescs) override;
         ASFootprint             CalculateTLASFootprint(Buffer instanceBuffer, uint32_t offsetInInstanceBuffer, uint32_t instanceCount) override;
         SRTFootprint            CalculateShaderRecordTableFootprint(const SRTFootprintDesc& desc) override;
         uint64_t                CalculateMipUploadDescs(const Texture2DDesc& desc, Span<MipUploadDesc> outMipUploadDescs) override;
         uint64_t                CalculateMipUploadDescs(const Texture3DDesc& desc, Span<MipUploadDesc> outMipUploadDescs) override;
         ResourceFootprint       CalculateTLASInstanceBufferFootprint(uint32_t instanceCount) override;
-        void                    PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, Span<unsigned char*> destData) override;
+        void                    PopulateTLASInstances(Span<const TLASInstanceDesc> instances, Span<unsigned char*> destData) override;
 
         // Command API
         CommandList*            AllocateCommandList() override;

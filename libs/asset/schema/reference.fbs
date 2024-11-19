@@ -1,0 +1,8 @@
+namespace rn;
+
+attribute "reference_type";
+
+struct Reference
+{
+    identifier: uint;
+}

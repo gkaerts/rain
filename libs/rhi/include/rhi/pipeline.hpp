@@ -4,8 +4,6 @@
 #include "common/memory/span.hpp"
 #include "rhi/limits.hpp"
 
-#include <initializer_list>
-
 namespace rn::rhi
 {
     enum class DepthFormat : uint32_t;
@@ -67,7 +65,7 @@ namespace rn::rhi
         BlendState blendState;
         DepthState depthState;
 
-        std::initializer_list<RenderTargetFormat> renderTargetFormats;
+        Span<const RenderTargetFormat> renderTargetFormats;
         DepthFormat depthFormat;
 
         TopologyType topology;
@@ -83,7 +81,7 @@ namespace rn::rhi
         BlendState blendState;
         DepthState depthState;
 
-        std::initializer_list<RenderTargetFormat> renderTargetFormats;
+        Span<const RenderTargetFormat> renderTargetFormats;
         DepthFormat depthFormat;
 
         TopologyType topology;
@@ -110,7 +108,7 @@ namespace rn::rhi
 
         ShaderBytecode rayGenAndMissLibrary;
         const char* rayGenExport;
-        std::initializer_list<const char*> missExports;
-        std::initializer_list<RTHitGroupDesc> hitGroups;
+        Span<const char*> missExports;
+        Span<RTHitGroupDesc> hitGroups;
     };
 }

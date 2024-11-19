@@ -324,7 +324,7 @@ namespace rn::rhi
             };
         }
 
-        D3D12_RT_FORMAT_ARRAY ToRTFormatArray(std::initializer_list<RenderTargetFormat> formats)
+        D3D12_RT_FORMAT_ARRAY ToRTFormatArray(Span<const RenderTargetFormat> formats)
         {
             RN_ASSERT(formats.size() <= RN_ARRAY_SIZE(D3D12_RT_FORMAT_ARRAY::RTFormats));
 

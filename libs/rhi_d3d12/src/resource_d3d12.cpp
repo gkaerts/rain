@@ -1180,7 +1180,7 @@ namespace rn::rhi
         };
     }
 
-    ASFootprint DeviceD3D12::CalculateBLASFootprint(std::initializer_list<BLASTriangleGeometryDesc> geometryDescs)
+    ASFootprint DeviceD3D12::CalculateBLASFootprint(Span<const BLASTriangleGeometryDesc> geometryDescs)
     {
         MemoryScope SCOPE;
         ScopedVector<D3D12_RAYTRACING_GEOMETRY_DESC> srcD3DGeoDesc;
@@ -1402,7 +1402,7 @@ namespace rn::rhi
         };
     }
 
-    void DeviceD3D12::PopulateTLASInstances(std::initializer_list<const TLASInstanceDesc> instances, Span<unsigned char*> destData)
+    void DeviceD3D12::PopulateTLASInstances(Span<const TLASInstanceDesc> instances, Span<unsigned char*> destData)
     {
         RN_ASSERT(destData.size() >= instances.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC));
         constexpr uint32_t MAX_INSTANCE_BATCH_SIZE = 32;

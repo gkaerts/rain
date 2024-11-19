@@ -89,8 +89,8 @@ TEST_F(CommandListD3D12Tests, CanUploadTexture2D)
     uint64_t totalUploadSize = device->CalculateMipUploadDescs(desc, uploadDesc);
     
     Vector<unsigned char> textureData(totalUploadSize);
-
-    rhi::BarrierDesc barriers = {
+    rhi::CommandList* commandList = device->AllocateCommandList();
+    commandList->Barrier({
         .texture2DBarriers = {
             {
                 .fromStage = rhi::PipelineSyncStage::None,
@@ -106,10 +106,8 @@ TEST_F(CommandListD3D12Tests, CanUploadTexture2D)
                 .numArraySlices = 1
             }
         }
-    };
+    });
 
-    rhi::CommandList* commandList = device->AllocateCommandList();
-    commandList->Barrier(barriers);
     commandList->UploadTextureData(texture, 0, uploadDesc, textureData);
 
     device->SubmitCommandLists({&commandList, 1});
@@ -139,8 +137,9 @@ TEST_F(CommandListD3D12Tests, CanUploadTexture3D)
     uint64_t totalUploadSize = device->CalculateMipUploadDescs(desc, uploadDesc);
     
     Vector<unsigned char> textureData(totalUploadSize);
-
-    rhi::BarrierDesc barriers = {
+    
+    rhi::CommandList* commandList = device->AllocateCommandList();
+    commandList->Barrier({
         .texture3DBarriers = {
             {
                 .fromStage = rhi::PipelineSyncStage::None,
@@ -154,10 +153,8 @@ TEST_F(CommandListD3D12Tests, CanUploadTexture3D)
                 .numMips = 1
             }
         }
-    };
+    });
 
-    rhi::CommandList* commandList = device->AllocateCommandList();
-    commandList->Barrier(barriers);
     commandList->UploadTextureData(texture, 0, uploadDesc, textureData);
 
     device->SubmitCommandLists({&commandList, 1});
