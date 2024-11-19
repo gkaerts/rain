@@ -13,12 +13,12 @@ Additionally I'd like to integrate my TBDR-specific Vulkan rendering engine into
 * [**D3D12 RHI**](https://github.com/gkaerts/rain/tree/master/libs/rhi_d3d12): D3D12 implementation of the RHI interface
 * [**Application**](https://github.com/gkaerts/rain/tree/master/libs/application): Event processing, window management
 * [**Render Graph**](https://github.com/gkaerts/rain/tree/master/libs/render_graph): Simple frame graph style render pass management
+* [**Asset**](https://github.com/gkaerts/rain/tree/master/libs/asset): Library for defining and processing asset types. Will be extended to include support for asset tooling.
 
 ## Coming Up
 
 Here's an overview of what I'll be working on next:
 * **Vulkan RHI Library**: Vulkan implementation of the RHI interface - **In Progress**
-* **Asset Library**: Library for defining, loading, baking and packaging assets - **Not started**
 * **Editor**: ImGui-based editor framework for manipulating scenes - **Not started**
 * **Rendering Features Library**: Collection of various fun rendering features - **Not started**
 
@@ -31,3 +31,5 @@ Here's a list of external libraries used:
 * [**unordered_dense**](https://github.com/martinus/unordered_dense)
 * [**hlslpp**](https://github.com/redorav/hlslpp)
 * [**SDL**](https://github.com/libsdl-org/SDL)
+* [**flatbuffers**](https://github.com/google/flatbuffers)
+* [**mio**](https://github.com/vimpunk/mio)
