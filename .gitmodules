@@ -19,3 +19,9 @@
 [submodule "contrib/submodules/flatbuffers"]
 	path = contrib/submodules/flatbuffers
 	url = https://github.com/google/flatbuffers
+[submodule "contrib/submodules/basis_universal"]
+	path = contrib/submodules/basis_universal
+	url = https://github.com/BinomialLLC/basis_universal
+[submodule "contrib/submodules/tomlplusplus"]
+	path = contrib/submodules/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus
