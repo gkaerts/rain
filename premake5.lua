@@ -21,6 +21,7 @@ PLATFORM_BUILD_PROPERTIES = {
 }
 
 BUILD_PROPERTIES = PLATFORM_BUILD_PROPERTIES[_OPTIONS["platform"]]
+GENERATED_FILE_PATH = "%{wks.location}/%{cfg.buildcfg}/gen"
 
 workspace "rain"
 
@@ -50,8 +51,13 @@ workspace "rain"
 
     filter {}
 
-    -- Build location
-    location("build/" .. _OPTIONS["platform"])
+    if _ACTION == "download_dependencies" then
+        -- Download location
+        location("downloads/")
+    else
+        -- Build location
+        location("build/" .. _OPTIONS["platform"])
+    end
 
     -- Platform specific libs
     if BUILD_PROPERTIES.SupportVulkan and BUILD_PROPERTIES.RequiresExternalVulkanLib then

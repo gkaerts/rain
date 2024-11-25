@@ -20,12 +20,12 @@ if BUILD_PROPERTIES.SupportsD3D12 then
 
         RN_RHI_D3D12_INCLUDES = {
             "%{wks.location}/../../libs/rhi_d3d12/include",
-            "%{wks.location}/../../contrib/third_party/d3d12agility/include",
-            "%{wks.location}/../../contrib/third_party/pix/include",
         }
     
         includedirs(RN_COMMON_INCLUDES)
         includedirs(RN_RHI_INCLUDES)
+        includedirs(RN_D3D12_AGILITY_INCLUDES)
+        includedirs(RN_PIX_INCLUDES)
         includedirs(RN_RHI_D3D12_INCLUDES)
 
         libdirs {

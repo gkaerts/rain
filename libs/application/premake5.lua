@@ -35,17 +35,16 @@ project "rnApplication"
     }
 
     if BUILD_PROPERTIES.RequiresSDL then
-        includedirs {
-            "../../contrib/third_party/sdl-2.30.9/include/SDL2",
-        }
+        includedirs(RN_SDL_INCLUDES)
 
-        dependson { "SDL2" }
+        dependson { "SDL" }
 
         filter "configurations:Debug"
-            links { "SDL2d", "SDL2maind"}
+           links { "SDL2d", "SDL2maind"}
 
         filter "configurations:Release"
             links { "SDL2", "SDL2main" }
+
     end
     
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
