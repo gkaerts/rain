@@ -1,3 +1,5 @@
+#include "test_include.h"
+
 struct PixelInput
 {
     float4 Position : SV_POSITION0;
@@ -40,3 +42,5 @@ void cs_main(uint2 dtid : SV_DispatchThreadID)
     RWTexture2D<float4> outTexture = ResourceDescriptorHeap[_Constants.outTexture];
     outTexture[dtid] = float4(1.0, 0.0, 0.0, 1.0);
 }
+
+

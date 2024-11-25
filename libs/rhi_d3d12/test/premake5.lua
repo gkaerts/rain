@@ -1,3 +1,5 @@
+
+
 project "rhiD3D12Tests"
 
     kind "ConsoleApp"
@@ -17,18 +19,17 @@ project "rhiD3D12Tests"
     includedirs(RN_RHI_D3D12_INCLUDES)
     includedirs(RN_GTEST_INCLUDES)
 
-    local GENERATED_FILE_PATH = "%{prj.location}/generated/%{cfg.buildcfg}/%{prj.name}"
     includedirs {
-        GENERATED_FILE_PATH
+        GENERATED_FILE_PATH .. "/rhiD3D12Tests"
     }
 
-    local SHADER_DEST_PATH =  GENERATED_FILE_PATH .. "/shaders"
+    local SHADER_DEST_PATH =  GENERATED_FILE_PATH .. "/rhiD3D12Tests/shaders"
     filter "files:**.hlsl"
         buildmessage "Compiling %{file.relpath}"
         buildcommands {
-            "..\\..\\contrib\\bin\\dxc\\dxc.exe -E vs_main -T vs_6_6 -Fh " .. SHADER_DEST_PATH .. "/%{file.basename}_vs.hpp -Vn %{file.basename}_vs %{file.relpath}",
-            "..\\..\\contrib\\bin\\dxc\\dxc.exe -E ps_main -T ps_6_6 -Fh " .. SHADER_DEST_PATH .. "/%{file.basename}_ps.hpp -Vn %{file.basename}_ps %{file.relpath}",
-            "..\\..\\contrib\\bin\\dxc\\dxc.exe -E cs_main -T cs_6_6 -Fh " .. SHADER_DEST_PATH .. "/%{file.basename}_cs.hpp -Vn %{file.basename}_cs %{file.relpath}"
+            "%{wks.location}%{cfg.buildcfg}\\dxc.exe -E vs_main -T vs_6_6 -Fh " .. SHADER_DEST_PATH .. "/%{file.basename}_vs.hpp -Vn %{file.basename}_vs %{file.relpath}",
+            "%{wks.location}%{cfg.buildcfg}\\dxc.exe -E ps_main -T ps_6_6 -Fh " .. SHADER_DEST_PATH .. "/%{file.basename}_ps.hpp -Vn %{file.basename}_ps %{file.relpath}",
+            "%{wks.location}%{cfg.buildcfg}\\dxc.exe -E cs_main -T cs_6_6 -Fh " .. SHADER_DEST_PATH .. "/%{file.basename}_cs.hpp -Vn %{file.basename}_cs %{file.relpath}"
         }
 
         buildoutputs {

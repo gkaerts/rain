@@ -57,7 +57,7 @@ namespace rn::rhi
 
         constexpr const D3D12_STATIC_SAMPLER_DESC STATIC_SAMPLERS[] =
         {
-            #include "shader/static_samplers.h"
+            #include "shared/samplers.h"
         };
 
         ID3D12RootSignature* CreateRootSignature(ID3D12Device10* device, const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& desc, const wchar_t* name)
