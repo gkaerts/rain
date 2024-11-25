@@ -15,11 +15,12 @@ project "dxc"
     
     local target_dir = path.translate("%{wks.location}/%{cfg.buildcfg}/", '\\')
     files {
+        "%{wks.location}/../../downloads/dxc/bin/x64/**.exe",
         "%{wks.location}/../../downloads/dxc/bin/x64/**.dll",
         "%{wks.location}/../../downloads/dxc/lib/x64/**.lib"
     }
 
-    filter 'files:**.dll or **.lib'
+    filter 'files:**.dll or **.lib or **.exe'
         buildmessage 'Copying %{file.abspath}'
         buildcommands {
             "copy %{file.abspath} " .. target_dir .. "\\%{file.name}"
