@@ -91,4 +91,7 @@ namespace rn
         size_t alignDiff = size % alignment;
         return (alignDiff > 0) ? size + alignment - alignDiff : size;
     }
+
+    template <typename EnumType>
+    inline constexpr size_t CountOf() { return size_t(EnumType::Count); }
 }

@@ -2,7 +2,7 @@
 #include "asset/registry.hpp"
 
 #include "flatbuffers/flatbuffers.h"
-#include "schema/asset_generated.h"
+#include "asset/schema/asset_generated.h"
 
 using namespace rn;
 

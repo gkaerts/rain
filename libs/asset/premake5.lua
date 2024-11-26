@@ -1,5 +1,28 @@
 include "../../contrib/projects/flatbuffers"
 
+
+compile_schema_files = function(generated_file_path, include_dirs)
+    local FLATC_CPP_ARGS = "--scoped-enums --cpp-std=C++17 --bfbs-gen-embed"
+
+    local COMMAND_CPP = "%{wks.location}/%{cfg.buildcfg}/flatc.exe --cpp " .. FLATC_CPP_ARGS
+    COMMAND_CPP = COMMAND_CPP .. " -o " .. generated_file_path .. "/schema"
+    for _, dir in ipairs(include_dirs) do
+        COMMAND_CPP = COMMAND_CPP .. " -I " .. dir
+    end
+    COMMAND_CPP = COMMAND_CPP .. " %{file.relpath}"
+
+    filter "files:**.fbs"
+        buildmessage "Compiling schema: %{file.relpath}"
+        buildcommands {
+            COMMAND_CPP
+        }
+
+        buildoutputs {
+            generated_file_path .. "/schema/%{file.basename}_generated.h"
+        }
+    filter{}
+end
+
 project "rnAsset"
     kind "StaticLib"
     language "C++"
@@ -15,8 +38,7 @@ project "rnAsset"
         "include/**.hpp", 
         "schema/**.fbs",
     }
-   
-    local GENERATED_FILE_PATH = "%{wks.location}/../../generated/%{cfg.buildcfg}/rnAsset"    
+    
     RN_ASSET_INCLUDES = {
         "%{wks.location}/../../contrib/submodules/mio/single_include",
         "%{wks.location}/../../libs/asset/include",
@@ -24,22 +46,12 @@ project "rnAsset"
         GENERATED_FILE_PATH
     }
 
-    local ASSET_SCHEMA_PATH = "%{wks.location}/../../libs/asset/schema"
+    ASSET_SCHEMA_PATH = "%{wks.location}/../../libs/asset/schema"
     RN_ASSET_SCHEMA_INCLUDES = {
         ASSET_SCHEMA_PATH,
     }
 
-    filter "files:**.fbs"
-        buildmessage "Compiling schema: %{file.relpath}"
-        buildcommands {
-            "%{wks.location}/%{cfg.buildcfg}/flatc.exe --cpp -o " .. GENERATED_FILE_PATH .. "/schema -I " .. ASSET_SCHEMA_PATH .. " %{file.relpath}"
-        }
-
-        buildoutputs {
-            GENERATED_FILE_PATH .. "/schema/%{file.basename}_generated.h"
-        }
-    filter{}
-
+    compile_schema_files(GENERATED_FILE_PATH .. "/asset", RN_ASSET_SCHEMA_INCLUDES)
 
     includedirs(RN_COMMON_INCLUDES)
     includedirs(RN_ASSET_INCLUDES)

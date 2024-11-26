@@ -96,7 +96,7 @@ namespace rn::asset
     template <typename HandleType, typename DataType>
     void Bank<HandleType, DataType>::Store(Asset handle, const AssetBuildDesc& desc)
     {
-        Store(handle, std::move(_builder->Build(desc)), desc.identifier);
+        Store(handle, std::move(_builder->Build(desc)), HashString(desc.identifier));
     }
 
     template <typename HandleType, typename DataType>

@@ -20,7 +20,7 @@ namespace rn::asset
 
     struct AssetBuildDesc
     {
-        StringHash identifier;
+        const char* identifier;
         Span<const uint8_t> data;
         Span<const Asset> dependencies;
     };

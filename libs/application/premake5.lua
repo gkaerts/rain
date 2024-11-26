@@ -38,12 +38,7 @@ project "rnApplication"
         includedirs(RN_SDL_INCLUDES)
 
         dependson { "SDL" }
-
-        filter "configurations:Debug"
-           links { "SDL2d", "SDL2maind"}
-
-        filter "configurations:Release"
-            links { "SDL2", "SDL2main" }
+        links { "SDL2", "SDL2main" }
 
     end
     

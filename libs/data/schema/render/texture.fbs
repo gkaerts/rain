@@ -1,0 +1,28 @@
+namespace rn.schema.render;
+
+enum TextureDataFormat : byte 
+{
+    Basis
+}
+
+enum Usage : uint 
+{ 
+    Diffuse, 
+    Normal, 
+    Control, 
+    UI, 
+    LUT, 
+    Heightmap,
+
+    Count
+}
+
+table Texture {
+    data_format: TextureDataFormat;
+    usage: Usage;
+    data:[ubyte];
+}
+
+root_type Texture;
+file_identifier "TXTR";
+file_extension "texture";

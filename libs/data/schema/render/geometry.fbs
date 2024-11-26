@@ -1,0 +1,86 @@
+include "common.fbs";
+
+namespace rn.schema.render;
+
+struct BufferRegion
+{
+    offset_in_bytes:    uint;
+    size_in_bytes:      uint;
+}
+
+enum IndexElementFormat : uint
+{
+    Uint16 = 0,
+    Uint32,
+
+    Count
+}
+
+enum VertexStreamFormat : uint
+{
+    Float = 0,
+    Half,
+
+    Int,
+    Uint,
+    Int16,
+    Uint16,
+    Int8,
+    Uint8,
+
+    Count
+}
+
+enum VertexStreamType : uint
+{
+    Position = 0,
+    Normal,
+    Tangent,
+    UV,
+    Color,
+
+    Count
+}
+
+struct VertexStream
+{
+    region:             BufferRegion;
+    type:               VertexStreamType;
+    format:             VertexStreamFormat;
+    component_count:    uint;
+    stride:             uint;
+}
+
+struct Meshlet
+{
+    vertex_offset:      uint;
+    triangle_offset:    uint;
+    vertex_count:       uint;
+    triangle_count:     uint;
+}
+
+table GeometryPart
+{
+    material_idx:       uint;
+
+    indices:            BufferRegion;
+    indices_format:     IndexElementFormat;
+
+    positions:          VertexStream;
+    vertex_streams:     [VertexStream];
+
+    meshlets:           [Meshlet];
+    meshlet_vertices:   BufferRegion;
+    meslet_indices:     BufferRegion;
+}
+
+table Geometry
+{
+    aabb:               AABB;
+    parts:              [GeometryPart];
+    data:               [ubyte];
+}
+
+root_type Geometry;
+file_identifier "GEOM";
+file_extension "geometry";

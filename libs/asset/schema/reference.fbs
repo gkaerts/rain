@@ -1,4 +1,4 @@
-namespace rn;
+namespace rn.schema;
 
 attribute "reference_type";
 

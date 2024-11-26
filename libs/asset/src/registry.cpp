@@ -3,7 +3,7 @@
 #include "common/log/log.hpp"
 #include "mio/mio.hpp"
 
-#include "schema/asset_generated.h"
+#include "asset/schema/asset_generated.h"
 
 #include "common/task/scheduler.hpp"
 #include "TaskScheduler.h"
@@ -136,7 +136,7 @@ namespace rn::asset
                     BankBase* bank = nullptr;
                     const schema::Asset* asset = nullptr;
                     Asset destHandle = Asset::Invalid;
-                    StringHash identifierHash;
+                    const char* identifier;
                     String path;
 
                     Span<Asset> dependencies;
@@ -170,7 +170,7 @@ namespace rn::asset
                         if (allDependenciesResident)
                         {
                             bank->Store(destHandle, {
-                                .identifier = identifierHash,
+                                .identifier = identifier,
                                 .data = { asset->asset_data()->data(), asset->asset_data()->size() },
                                 .dependencies = dependencies
                             });
@@ -207,7 +207,7 @@ namespace rn::asset
                 handleLoadTask.bank = bank;
                 handleLoadTask.asset = asset;
                 handleLoadTask.destHandle = handle.second;
-                handleLoadTask.identifierHash = identifierHash;
+                handleLoadTask.identifier = identifier;
                 handleLoadTask.path = path;
                 handleLoadTask.dependencies = dependentHandles;
 
@@ -264,7 +264,7 @@ namespace rn::asset
                 }
 
                 bank->Store(handle.second, {
-                    .identifier = identifierHash,
+                    .identifier = identifier,
                     .data = { asset->asset_data()->data(), asset->asset_data()->size() },
                     .dependencies = dependencies
                 });
