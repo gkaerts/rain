@@ -21,10 +21,8 @@ project "rnData"
         GENERATED_FILE_PATH
     }
 
-    DATA_SCHEMA_PATH = "%{wks.location}/../../libs/data/schema"
     RN_DATA_SCHEMA_INCLUDES = {
-        ASSET_SCHEMA_PATH,
-        DATA_SCHEMA_PATH,
+        "%{wks.location}/../../libs/"
     }
 
     compile_schema_files(GENERATED_FILE_PATH .. "/data", RN_DATA_SCHEMA_INCLUDES)

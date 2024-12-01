@@ -1,4 +1,6 @@
 #include "data/geometry.hpp"
+
+#include "data/schema/common_generated.h"
 #include "data/schema/geometry_generated.h"
 
 #include "rhi/device.hpp"
@@ -60,6 +62,11 @@ namespace rn::data
 
         VertexStream MakeVertexStream(rhi::Device* device, rhi::Buffer dataBuffer, const schema::render::VertexStream* inStream)
         {
+            if (!inStream)
+            {
+                return {};
+            }
+
             return {
                 .view = device->CreateBufferView({
                         .buffer = dataBuffer,
@@ -102,9 +109,9 @@ namespace rn::data
                     .indexCount             = part.indexCount,
                     .indexFormat            = part.indexFormat,
                     .vertexBuffer           = dataBuffer,
-                    .offsetInVertexBuffer   = part.positions.offsetInDataBuffer,
-                    .vertexCount            = part.vertexCount,
-                    .vertexStride           = part.positions.elementStride,
+                    .offsetInVertexBuffer   = geometry.positions.offsetInDataBuffer,
+                    .vertexCount            = geometry.vertexCount,
+                    .vertexStride           = geometry.positions.elementStride,
                     .positionFormat         = rhi::PositionFormat::XYZFloat
                 });
             }
@@ -136,7 +143,7 @@ namespace rn::data
                     .fromStage  = rhi::PipelineSyncStage::None,
                     .toStage    = rhi::PipelineSyncStage::BuildAccelerationStructure,
                     .fromAccess = rhi::PipelineAccess::None,
-                    .toAccess   = rhi::PipelineAccess::AccelerationStructureRead,
+                    .toAccess   = rhi::PipelineAccess::ShaderReadWrite,
 
                     .handle     = scratchBuffer,
                     .offset     = 0,
@@ -175,11 +182,60 @@ namespace rn::data
         const schema::render::Geometry* asset = schema::render::GetGeometry(desc.data.data());
 
         rhi::GPUMemoryRegion dataRegion = _allocator.Allocate(asset->data()->size());
+        uint32_t dataBufferSize = uint32_t(asset->data()->size());
         rhi::Buffer dataBuffer = _device->CreateBuffer({
             .flags = rhi::BufferCreationFlags::AllowShaderReadOnly | rhi::BufferCreationFlags::AllowShaderReadWrite,
-            .size = uint32_t(asset->data()->size()),
+            .size = dataBufferSize,
             .name = desc.identifier
         }, dataRegion);
+
+        const schema::render::VertexStream* positions = asset->positions();
+        RN_ASSERT(positions &&
+            positions->region().offset_in_bytes() % GEOMETRY_REGION_ALIGNMENT == 0 &&
+            positions->type() == schema::render::VertexStreamType::Position &&
+            positions->format() == schema::render::VertexStreamFormat::Float &&
+            positions->component_count() >= 3);
+
+        GeometryData outData = {
+            .dataGPURegion      = dataRegion,
+            .dataBuffer         = dataBuffer,
+            .vertexCount        = asset->positions()->region().size_in_bytes() / asset->positions()->stride(),
+            .positions          = MakeVertexStream(_device, dataBuffer, asset->positions()),
+             .aabb = {
+                .min = { asset->aabb()->min().x(), asset->aabb()->min().y(), asset->aabb()->min().z() },
+                .max = { asset->aabb()->max().x(), asset->aabb()->max().y(), asset->aabb()->max().z() },
+            }
+        };
+
+        const auto* vertexStreams = asset->vertex_streams();
+        for (const schema::render::VertexStream* stream : *vertexStreams)
+        {
+            VertexStream* destStream = nullptr;
+            switch(stream->type())
+            {
+                case schema::render::VertexStreamType::Normal:
+                    RN_ASSERT(outData.normals.view == rhi::BufferView::Invalid);
+                    destStream = &outData.normals;
+                break;
+                case schema::render::VertexStreamType::Tangent:
+                    RN_ASSERT(outData.tangents.view == rhi::BufferView::Invalid);
+                    destStream = &outData.tangents;
+                break;
+                case schema::render::VertexStreamType::UV:
+                    RN_ASSERT(outData.uvs.view == rhi::BufferView::Invalid);
+                    destStream = &outData.uvs;
+                break;
+                case schema::render::VertexStreamType::Color:
+                    RN_ASSERT(outData.colors.view == rhi::BufferView::Invalid);
+                    destStream = &outData.colors;
+                break;
+            }
+
+            if (destStream)
+            {
+                *destStream = MakeVertexStream(_device, dataBuffer, stream);
+            }
+        }
 
         const auto* parts = asset->parts();
         Span<GeometryPart> outParts = { TrackedNewArray<GeometryPart>(MemoryCategory::Data, parts->size()), parts->size() };
@@ -187,14 +243,6 @@ namespace rn::data
         uint32_t partIdx = 0;
         for (const schema::render::GeometryPart* part : *parts)
         {
-            const schema::render::VertexStream* positions = part->positions();
-            RN_ASSERT(positions &&
-                positions->region().offset_in_bytes() % GEOMETRY_REGION_ALIGNMENT == 0 &&
-                positions->type() == schema::render::VertexStreamType::Position &&
-                positions->format() == schema::render::VertexStreamFormat::Float &&
-                positions->component_count() >= 3);
-
-
             const schema::render::BufferRegion* indices = part->indices();
             RN_ASSERT(indices &&
                 indices->offset_in_bytes() % GEOMETRY_REGION_ALIGNMENT == 0);
@@ -203,9 +251,7 @@ namespace rn::data
             outPart = 
             {
                 .materialIndex  = part->material_idx(),
-                .vertexCount    = part->positions()->region().size_in_bytes() / part->positions()->stride(),
-
-                .positions      = MakeVertexStream(_device, dataBuffer, part->positions()),
+                .baseVertex     = part->base_vertex(),
                 .indices        = _device->CreateBufferView({
                                     .buffer = dataBuffer,
                                     .offsetInBytes = indices->offset_in_bytes(),
@@ -216,37 +262,9 @@ namespace rn::data
                 .indexOffset    = indices->offset_in_bytes(),
                 .indexCount     = CalculateIndexCount(part->indices_format(), indices->size_in_bytes())
             };
-
-            const auto* vertexStreams = part->vertex_streams();
-            for (const schema::render::VertexStream* stream : *vertexStreams)
-            {
-                VertexStream* destStream = nullptr;
-                switch(stream->type())
-                {
-                    case schema::render::VertexStreamType::Normal:
-                        RN_ASSERT(outPart.normals.view == rhi::BufferView::Invalid);
-                        destStream = &outPart.normals;
-                    break;
-                    case schema::render::VertexStreamType::Tangent:
-                        RN_ASSERT(outPart.tangents.view == rhi::BufferView::Invalid);
-                        destStream = &outPart.tangents;
-                    break;
-                    case schema::render::VertexStreamType::UV:
-                        RN_ASSERT(outPart.uvs.view == rhi::BufferView::Invalid);
-                        destStream = &outPart.uvs;
-                    break;
-                    case schema::render::VertexStreamType::Color:
-                        RN_ASSERT(outPart.colors.view == rhi::BufferView::Invalid);
-                        destStream = &outPart.colors;
-                    break;
-                }
-
-                if (destStream)
-                {
-                    *destStream = MakeVertexStream(_device, dataBuffer, stream);
-                }
-            }
         }
+        outData.parts = outParts;
+        
 
         rhi::CommandList* uploadCL = GetCommandListForCurrentThread();
         rhi::TemporaryResource tempData = uploadCL->AllocateTemporaryResource(asset->data()->size());
@@ -260,11 +278,11 @@ namespace rn::data
                 .toAccess   = rhi::PipelineAccess::CopyWrite,
                 .handle     = dataBuffer,
                 .offset     = 0,
-                .size       = tempData.sizeInBytes
+                .size       = dataBufferSize
             }}
         });
 
-        uploadCL->CopyBufferRegion(dataBuffer, 0, tempData.buffer, tempData.offsetInBytes, tempData.sizeInBytes);
+        uploadCL->CopyBufferRegion(dataBuffer, 0, tempData.buffer, tempData.offsetInBytes, dataBufferSize);
 
         _allocator.PushBarrier({
             .fromStage  = rhi::PipelineSyncStage::Copy,
@@ -277,17 +295,6 @@ namespace rn::data
             .offset     = 0,
             .size       = tempData.sizeInBytes
         });
-
-        GeometryData outData = 
-        {
-            .dataGPURegion = dataRegion,
-            .dataBuffer = dataBuffer,
-            .parts = outParts,
-            .aabb = {
-                .min = { asset->aabb()->min().x(), asset->aabb()->min().y(), asset->aabb()->min().z() },
-                .max = { asset->aabb()->max().x(), asset->aabb()->max().y(), asset->aabb()->max().z() },
-            }
-        };
 
         if (_device->Capabilities().hasHardwareRaytracing)
         {
@@ -313,13 +320,18 @@ namespace rn::data
         for (const GeometryPart& part : data.parts)
         {
             _device->Destroy(part.indices);
-            DestroyVertexStream(_device, part.positions);
-            DestroyVertexStream(_device, part.normals);
-            DestroyVertexStream(_device, part.tangents);
-            DestroyVertexStream(_device, part.colors);
-            DestroyVertexStream(_device, part.uvs);
         }
-        TrackedDeleteArray(data.parts.data());
+
+        if (!data.parts.empty())
+        {
+            TrackedDeleteArray(data.parts.data());
+        }
+
+        DestroyVertexStream(_device, data.positions);
+        DestroyVertexStream(_device, data.normals);
+        DestroyVertexStream(_device, data.tangents);
+        DestroyVertexStream(_device, data.colors);
+        DestroyVertexStream(_device, data.uvs);
 
         if (data.blas != rhi::BLASView::Invalid)
         {
@@ -328,8 +340,15 @@ namespace rn::data
             _allocator.Free(data.blasGPURegion);
         }
 
-        _device->Destroy(data.dataBuffer);
-        _allocator.Free(data.dataGPURegion);
+        if (data.dataBuffer != rhi::Buffer::Invalid)
+        {
+            _device->Destroy(data.dataBuffer);
+        }
+
+        if (data.dataGPURegion.allocation != rhi::GPUAllocation::Invalid)
+        {
+            _allocator.Free(data.dataGPURegion);
+        }
     }
 
     void GeometryBuilder::Finalize()
@@ -352,4 +371,29 @@ namespace rn::data
         _device->SubmitCommandLists(submitCLs);
     }
 
+    rhi::CommandList* GeometryBuilder::GetCommandListForCurrentThread()
+    {
+        rhi::CommandList* cl = nullptr;
+
+        std::unique_lock lock(_clMutex);
+        for (const UploadCommandList& uploadCL : _uploadCLs)
+        {
+            if (uploadCL.threadID == std::this_thread::get_id())
+            {
+                cl = uploadCL.cl;
+                break;
+            }
+        }
+
+        if (!cl)
+        {
+            cl = _device->AllocateCommandList();
+            _uploadCLs.push_back({
+                .threadID = std::this_thread::get_id(),
+                .cl = cl
+            });
+        }
+
+        return cl;
+    }
 }

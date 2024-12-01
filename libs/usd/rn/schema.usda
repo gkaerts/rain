@@ -1,0 +1,204 @@
+#usda 1.0
+(
+    subLayers = [
+        # To refer to schema types defined in schema.usda files from other
+        # libraries, simply add comma-separated lines of the form
+        # @<library name>/schema.usda@. In this example, we're referring
+        # to schema types from 'usd'. If you were adding sub-classes of
+        # UsdGeom schema types, you would use usdGeom/schema.usda instead.
+        @usd/schema.usda@
+    ]
+)
+
+over "GLOBAL" (
+    customData = {
+        string libraryName   = "rn"
+        string libraryPath   = "./"
+        string libraryPrefix = "Rn"
+    }
+) { }
+
+# Texture assets
+class Texture "Texture" (
+    inherits = </Typed>
+    doc = """Defines a texture asset"""
+) {
+    uniform asset file (
+        doc = """Image file to use as an input for the texture asset"""
+    )
+
+    uniform token usage (
+        allowedTokens = ["Diffuse", "Normal", "Control", "UI", "LUT", "Heightmap" ]
+        doc = """A token denoting the usage of the texture"""
+    )
+}
+
+
+# Material shader assets
+class MaterialShader "MaterialShader" (
+    inherits = </Typed>
+    doc = """Defines a material shader asset"""
+) {
+    uniform asset source (
+        doc = """HLSL file containing the shader source code"""
+    )
+
+    uniform string[] defines (
+        doc = """A list of HLSL shader defines to compile the source shader with"""
+    )
+
+    uniform string[] includeDirs (
+        doc = """A list of directories where the shader compiler can find header files"""
+    )
+
+    rel renderPasses (
+        doc = """List of render pass prims to be used by this material shader"""
+    )
+
+    rel paramGroups (
+        doc = """List of parameters group prims to be used by this material shader"""
+    )
+}
+
+class "MaterialShaderRenderPass" (
+    inherits = </Typed>
+    doc = """Non-Concrete base class for material shader render pass definitions"""
+) {
+    uniform token engineRenderPass (
+        allowedTokens = ["Depth", "GBuffer", "VBuffer", "Forward", "DDGI", "Reflections"]
+        doc = """Token denoting the engine render pass this render pass participates in"""
+    )
+}
+
+class VertexRasterPass "VertexRasterPass" (
+    inherits = </MaterialShaderRenderPass>
+    doc = """Defines a vertex shader rasterization render pass for a material shader"""
+) {
+    uniform token vertexShader (
+        doc = """Name of the HLSL vertex shader entrypoint"""
+    )
+
+    uniform token pixelShader (
+        doc = """Name of the HLSL pixel shader entrypoint"""
+    )
+}
+
+class MeshRasterPass "MeshRasterPass" (
+    inherits = </MaterialShaderRenderPass>
+    doc = """Defines a mesh shader rasterization render pass for a material shader"""
+) {
+    uniform token meshShader (
+        doc = """Name of the HLSL mesh shader entrypoint"""
+    )
+
+    uniform token amplificationShader (
+        doc = """Name of the HLSL amplification shader entrypoint"""
+    )
+
+    uniform token pixelShader (
+        doc = """Name of the HLSL pixel shader entrypoint"""
+    )
+}
+
+class RayTracingPass "RayTracingPass" (
+    inherits = </MaterialShaderRenderPass>
+    doc = """Defines a ray tracing render pass for a material shader"""
+) {
+    uniform token hitGroupNameExport (
+        doc = """Name of the hit group export for this pass"""
+    )
+
+    uniform token closestHitExport (
+        doc = """Name of the closest hit export for this pass"""
+    )
+
+    uniform token anyHitExport (
+        doc = """Name of the any-hit hit export for this pass"""
+    )
+}
+
+class MaterialShaderParamGroup "MaterialShaderParamGroup" (
+    inherits = </Typed>
+    doc = """Defines a material shader parameter group"""
+) {
+    rel parameters (
+        doc = """List of parameters for this parameters group"""
+    )
+}
+
+class "MaterialShaderParam" (
+    inherits = </Typed>
+    doc = """A non-concrete class defining a material shader parameter"""
+) {
+    uniform token hlslParam (
+        doc = """The name of the parameter in the HLSL source code"""
+    )
+}
+
+class MaterialShaderParamFloatVec "MaterialShaderParamFloatVec" (
+    inherits = </MaterialShaderParam>
+    doc = """A material shader parameter representing a floating point vector value"""
+) {
+    uniform uint dimension (
+        doc = """The dimension of the float vector"""
+    )
+    uniform float[] defaultValue (
+        doc = """The default value of the parameter"""
+    )
+    uniform float[] minValue (
+        doc = """The minimum value of the parameter"""
+    )
+    uniform float[] maxValue (
+        doc = """The maximum value of the parameter"""
+    )
+}
+
+class MaterialShaderParamUintVec "MaterialShaderParamUintVec" (
+    inherits = </MaterialShaderParam>
+    doc = """A material shader parameter representing a unsigned integer vector value"""
+) {
+    uniform uint dimension (
+        doc = """The dimension of the uint vector"""
+    )
+    uniform uint[] defaultValue (
+        doc = """The default value of the parameter"""
+    )
+    uniform uint[] minValue (
+        doc = """The minimum value of the parameter"""
+    )
+    uniform uint[] maxValue (
+        doc = """The maximum value of the parameter"""
+    )
+}
+
+class MaterialShaderParamIntVec "MaterialShaderParamIntVec" (
+    inherits = </MaterialShaderParam>
+    doc = """A material shader parameter representing an integer vector value"""
+) {
+    uniform uint dimension (
+        doc = """The dimension of the int vector"""
+    )
+    uniform int[] defaultValue (
+        doc = """The default value of the parameter"""
+    )
+    uniform int[] minValue (
+        doc = """The minimum value of the parameter"""
+    )
+    uniform int[] maxValue (
+        doc = """The maximum value of the parameter"""
+    )
+}
+
+class MaterialShaderParamTexture "MaterialShaderParamTexture" (
+    inherits = </MaterialShaderParam>
+    doc = """A material shader parameter representing an integer vector value"""
+) {
+    uniform token dimension (
+        allowedTokens = ["2D", "3D"]
+        doc = """The dimension of texture parameter"""
+    )
+    uniform asset defaultValue (
+        doc = """The default value of the parameter"""
+    )
+}
+

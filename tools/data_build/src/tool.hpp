@@ -3,7 +3,9 @@
 #include "common/common.hpp"
 #include "common/memory/span.hpp"
 #include <string_view>
+#include <sstream>
 #include <iostream>
+#include <iomanip>
 
 using namespace std::literals;
 
@@ -34,7 +36,13 @@ namespace rn
 
         for (const ToolOption<ArgType>& option : options)
         {
-            std::cout << "-" << option.option << " " << option.parameter << "\t\t" << option.description << std::endl;
+            std::ostringstream ss;
+            ss << "-" << option.option << " " << option.parameter;
+            std::cout << std::left << std::setw(30) << ss.str();
+            ss.str("");
+
+            std::cout << std::left << std::setw(50) << option.description;
+            std::cout << std::endl;
         }
         std::cout << std::endl;
         std::cout << tool.additionalUsageText << std::endl;

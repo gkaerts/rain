@@ -50,13 +50,7 @@ namespace rn::data
     struct GeometryPart
     {
         uint32_t            materialIndex;
-        uint32_t            vertexCount;
-
-        VertexStream        positions;
-        VertexStream        normals;
-        VertexStream        tangents;
-        VertexStream        colors;
-        VertexStream        uvs;
+        uint32_t            baseVertex;
 
         rhi::BufferView     indices;
         rhi::IndexFormat    indexFormat;
@@ -72,6 +66,14 @@ namespace rn::data
         rhi::GPUMemoryRegion        blasGPURegion;
         rhi::Buffer                 blasBuffer;
         rhi::BLASView               blas;
+
+        uint32_t                    vertexCount;
+
+        VertexStream                positions;
+        VertexStream                normals;
+        VertexStream                tangents;
+        VertexStream                colors;
+        VertexStream                uvs;
 
         Span<const GeometryPart>    parts;
         AABB                        aabb;

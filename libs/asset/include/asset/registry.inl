@@ -104,6 +104,7 @@ namespace rn::asset
     {
         HandleType typedHandle = HandleType(handle);
         DataType* storedData = _assets.GetHotPtrMutable(typedHandle);
+        AssetState* state = _assets.GetColdPtrMutable(typedHandle);
         RN_ASSERT(storedData);
 
         _builder->Destroy(*storedData);
@@ -112,7 +113,9 @@ namespace rn::asset
         {
             std::shared_lock lock(_identifierToHandleMutex);
             _identifierToHandle[identifier] = typedHandle;
+            state->residency = Residency::Resident;
         }
+
     }
 
     template <typename HandleType, typename DataType>

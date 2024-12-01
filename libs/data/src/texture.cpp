@@ -87,7 +87,9 @@ namespace rn::data
     TextureBuilder::TextureBuilder(rhi::Device* device)
         : _device(device)
         , _allocator(device)
-    {}
+    {
+        basist::basisu_transcoder_init();
+    }
 
     namespace
     {
@@ -257,15 +259,29 @@ namespace rn::data
         {
             case TextureType::Texture2D:
             {
-                _device->Destroy(data.texture2D.rhiView);
-                _device->Destroy(data.texture2D.rhiTexture);
+                if (data.texture2D.rhiView != rhi::Texture2DView::Invalid)
+                {
+                    _device->Destroy(data.texture2D.rhiView);
+                }
+
+                if (data.texture2D.rhiTexture != rhi::Texture2D::Invalid)
+                {
+                    _device->Destroy(data.texture2D.rhiTexture);
+                }
             }
             break;
 
             case TextureType::Texture3D:
             {
-                _device->Destroy(data.texture3D.rhiView);
-                _device->Destroy(data.texture3D.rhiTexture);
+                if (data.texture3D.rhiView != rhi::Texture3DView::Invalid)
+                {
+                    _device->Destroy(data.texture3D.rhiView);
+                }
+
+                if (data.texture3D.rhiTexture != rhi::Texture3D::Invalid)
+                {
+                    _device->Destroy(data.texture3D.rhiTexture);
+                }
             }
             break;
 
@@ -274,7 +290,10 @@ namespace rn::data
             break;
         }
 
-        _allocator.Free(data.gpuRegion);
+        if (data.gpuRegion.allocation != rhi::GPUAllocation::Invalid)
+        {
+            _allocator.Free(data.gpuRegion);
+        }
         data = {};
     }
 

@@ -12,7 +12,7 @@ namespace rn
     constexpr const Tool DATA_BUILD_TOOL = {
         .name = "data_build"sv,
         .additionalUsageText = 
-            "FILE must be an asset build file in TOML format.\n"
+            "FILE must be an asset build file in TOML format or a USD file (usda, usdc or usd).\n"
             "Example: data_build -o .\\Content .\\textures\\my_texture.texture.toml\n"sv
     };
 
@@ -25,10 +25,22 @@ namespace rn
             .onOptionFound = [](DataBuildOptions& args, std::string_view arg){ args.outputDirectory = arg; }
         },
         {
+            .option = "force"sv,
+            .parameter = ""sv,
+            .description = "Forces the build of the asset and skips the cache check."sv,
+            .onOptionFound = [](DataBuildOptions& args, std::string_view arg){ args.force = true; }
+        },
+        {
             .option = "cache"sv,
             .parameter = "CACHE_PATH"sv,
             .description = "Path to write the dependency cache to."sv,
             .onOptionFound = [](DataBuildOptions& args, std::string_view arg){ args.cacheDirectory = arg; }
+        },
+        {
+            .option = "root"sv,
+            .parameter = "ROOT_PATH"sv,
+            .description = "Root directory for the asset file structure, used to determine relative paths in the cache"sv,
+            .onOptionFound = [](DataBuildOptions& args, std::string_view arg){ args.assetRootDirectory = arg; }
         },
         { 
             .option = "h"sv,
@@ -52,7 +64,8 @@ int main(int argc, char* argv[])
     {
         .exeName = argv[0],
         .outputDirectory = ""sv,
-        .cacheDirectory = "build/data_cache"sv
+        .cacheDirectory = "build/data_cache"sv,
+        .assetRootDirectory = "./"sv
     };
 
     int ret = 1;

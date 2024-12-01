@@ -1,0 +1,7 @@
+#usda 1.0
+
+def Texture "Texture"
+{
+    uniform asset file = @texture.png@
+    uniform token usage = "Diffuse"
+}

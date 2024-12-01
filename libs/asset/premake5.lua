@@ -2,7 +2,7 @@ include "../../contrib/projects/flatbuffers"
 
 
 compile_schema_files = function(generated_file_path, include_dirs)
-    local FLATC_CPP_ARGS = "--scoped-enums --cpp-std=C++17 --bfbs-gen-embed"
+    local FLATC_CPP_ARGS = "--scoped-enums --cpp-std=C++17 --bfbs-gen-embed --no-includes"
 
     local COMMAND_CPP = "%{wks.location}/%{cfg.buildcfg}/flatc.exe --cpp " .. FLATC_CPP_ARGS
     COMMAND_CPP = COMMAND_CPP .. " -o " .. generated_file_path .. "/schema"
@@ -46,9 +46,8 @@ project "rnAsset"
         GENERATED_FILE_PATH
     }
 
-    ASSET_SCHEMA_PATH = "%{wks.location}/../../libs/asset/schema"
     RN_ASSET_SCHEMA_INCLUDES = {
-        ASSET_SCHEMA_PATH,
+        "%{wks.location}/../../libs/"
     }
 
     compile_schema_files(GENERATED_FILE_PATH .. "/asset", RN_ASSET_SCHEMA_INCLUDES)

@@ -1,4 +1,13 @@
+#pragma warning(push, 1)
+#include <pxr/usd/usd/attribute.h>
+#include <pxr/usd/sdf/assetPath.h>
+#include "rn/texture.h"
+#pragma warning(pop)
+
 #include "build.hpp"
+#include "usd.hpp"
+#include "texture.hpp"
+
 #include "data/schema/texture_generated.h"
 #include "encoder/basisu_enc.h"
 #include "encoder/basisu_comp.h"
@@ -10,7 +19,7 @@ namespace rn
 {
     struct Texture
     {
-        std::filesystem::path sourceImage;
+        std::string sourceImage;
         schema::render::Usage usage;
     };
 
@@ -20,9 +29,8 @@ namespace rn
         "tga",
     };
 
-    bool IsValidImageFileFormat(std::string_view file, toml::node& node)
+    bool IsValidImageFileFormat(std::string_view path)
     {
-        std::string_view path = node.value_or(""sv);
         std::string_view ext = path.substr(path.find_last_of('.') + 1);
 
         bool validFormat = false;
@@ -38,10 +46,14 @@ namespace rn
         return validFormat;
     }
 
-    bool IsValidUsageValue(std::string_view file, toml::node& node)
+    bool IsValidImageFileFormat(std::string_view file, const pxr::UsdAttribute& attr)
     {
-        std::string_view usage = node.value_or(""sv);
+        auto str = Value<pxr::SdfAssetPath>(attr);
+        return IsValidImageFileFormat(str.GetAssetPath());
+    }
 
+     bool IsValidUsageValue(std::string_view usage)
+     {
         bool validUsage = false;
         for (int i = 0; i < int(schema::render::Usage::Count); ++i)
         {
@@ -53,6 +65,12 @@ namespace rn
         }
 
         return validUsage;
+     }
+
+    bool IsValidUsageValue(std::string_view file, const pxr::UsdAttribute& attr)
+    {
+        auto str = Value<pxr::TfToken>(attr);
+        return IsValidUsageValue(str.GetString());
     }
 
     schema::render::Usage UsageFromString(std::string_view usage)
@@ -70,41 +88,24 @@ namespace rn
         return outUsage;
     }
 
-    const TableSchema TEXTURE_TABLE_SCHEMA = {
-        .name = "texture"sv,
-        .requiredFields = {
-            { .name = "source_image"sv, .type = toml::node_type::string, .fnIsValidValue = IsValidImageFileFormat },
-            { .name = "usage"sv, .type = toml::node_type::string, .fnIsValidValue = IsValidUsageValue }
+    const PrimSchema TEXTURE_PRIM_SCHEMA = {
+        .requiredProperties = {
+            { .name = "file", .fnIsValidPropertyValue = IsValidImageFileFormat },
+            { .name = "usage", .fnIsValidPropertyValue = IsValidUsageValue }
         },
     };
 
-    int BuildTextureAsset(std::string_view file, toml::parse_result& root, const DataBuildOptions& options, Vector<std::string>& outFiles)
+    int CompressAndBuildAsset(std::string_view file, const DataBuildOptions& options, const Texture& inputs, Vector<std::string>& outFiles)
     {
-        if (!root["texture"])
-        {
-            BuildError(file) << "No [texture] table found" << std::endl;
-            return 1;
-        }
-
-        auto texture = root["texture"];
-        if (!ValidateTable(file, *texture.node(), TEXTURE_TABLE_SCHEMA))
-        {
-            return 1;
-        }
-
-        Texture inputs = {
-            .sourceImage = texture["source_image"].value_or(""sv),
-            .usage = UsageFromString(texture["usage"].value_or(""sv))
-        };
-
         std::filesystem::path buildFilePath = file;
         std::filesystem::path relBuildFileDirectory = buildFilePath.relative_path().parent_path();
         std::filesystem::path sourceImagePath = relBuildFileDirectory / inputs.sourceImage;
+        outFiles.push_back(sourceImagePath.string());
 
         basisu::image img;
         if (!basisu::load_image(sourceImagePath.string(), img))
         {
-            BuildError(file) << "Failed to load source image: '" << inputs.sourceImage << "'" << std::endl;
+            BuildError(file) << "Failed to load source image: '" << sourceImagePath << "'" << std::endl;
             return 1;
         }
 
@@ -200,7 +201,22 @@ namespace rn
             dataVec);
         fbb.Finish(fbRoot, schema::render::TextureIdentifier());
         
-        outFiles.push_back(sourceImagePath.string());
         return WriteAssetToDisk(file, schema::render::TextureExtension(), options, fbb.GetBufferSpan(), {}, outFiles);
+    }
+
+    int ProcessUsdTexture(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
+    {
+        if (!ValidatePrim(file, prim, TEXTURE_PRIM_SCHEMA))
+        {
+            return false;
+        }
+
+        pxr::RnTexture texturePrim(prim);
+        Texture inputs = {
+            .sourceImage = Value<pxr::SdfAssetPath>(texturePrim.GetFileAttr()).GetResolvedPath(),
+            .usage = UsageFromString(Value<pxr::TfToken>(texturePrim.GetUsageAttr()).GetString())
+        };
+
+        return CompressAndBuildAsset(file, options, inputs, outFiles);
     }
 }

@@ -25,3 +25,9 @@
 [submodule "contrib/submodules/tomlplusplus"]
 	path = contrib/submodules/tomlplusplus
 	url = https://github.com/marzer/tomlplusplus
+[submodule "contrib/submodules/meshoptimizer"]
+	path = contrib/submodules/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer
+[submodule "contrib/submodules/MikkTSpace"]
+	path = contrib/submodules/MikkTSpace
+	url = https://github.com/mmikk/MikkTSpace

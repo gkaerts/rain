@@ -1,0 +1,51 @@
+#usda 1.0
+
+def MaterialShader "MaterialShader"
+{
+    uniform asset source = @material_shader.hlsl@
+
+    uniform string[] defines = []
+    uniform string[] includeDirs = [
+        "libs/engine_shaders/include"
+    ]
+
+    rel renderPasses = [
+        </MaterialShader/ForwardPass>
+    ]
+
+    rel paramGroups = [
+        </MaterialShader/DefaultParameters>
+    ]
+
+    def VertexRasterPass "ForwardPass"
+    {
+        uniform token engineRenderPass = "Forward"
+        uniform token vertexShader = "vs_main"
+        uniform token pixelShader = "ps_main"
+    }
+
+    def MaterialShaderParamGroup "DefaultParameters"
+    {
+        rel parameters = [
+            </MaterialShader/DefaultParameters/ColorTexture>,
+            </MaterialShader/DefaultParameters/Color>
+        ]
+
+        def MaterialShaderParamTexture "ColorTexture"
+        {
+            uniform token dimension = "2D"
+            uniform token hlslParam = "colorTexture"
+            uniform asset defaultValue = @../textures/texture.usda@
+        }
+
+        def MaterialShaderParamFloatVec "Color"
+        {
+            uniform uint dimension = 4
+            uniform token hlslParam = "colorBlend"
+            uniform float[] defaultValue = [1.0, 1.0, 1.0, 1.0]
+            uniform float[] minValue = [0.0, 0.0, 0.0, 0.0]
+            uniform float[] maxValue = [1.0, 1.0, 1.0, 1.0]
+        }
+    }
+
+}

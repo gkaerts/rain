@@ -1,4 +1,4 @@
-include "common.fbs";
+include "data/schema/common.fbs";
 
 namespace rn.schema.render;
 
@@ -63,22 +63,24 @@ table GeometryPart
 {
     material_idx:       uint;
 
-    indices:            BufferRegion;
+    base_vertex:        uint;
+    indices:            BufferRegion        (required);
     indices_format:     IndexElementFormat;
 
-    positions:          VertexStream;
-    vertex_streams:     [VertexStream];
-
-    meshlets:           [Meshlet];
-    meshlet_vertices:   BufferRegion;
-    meslet_indices:     BufferRegion;
+    meshlets:           [Meshlet]           (required);
+    meshlet_vertices:   BufferRegion        (required);
+    meslet_indices:     BufferRegion        (required);
 }
 
 table Geometry
 {
-    aabb:               AABB;
-    parts:              [GeometryPart];
-    data:               [ubyte];
+    aabb:               AABB                (required);
+    parts:              [GeometryPart]      (required);
+
+    positions:          VertexStream        (required);
+    vertex_streams:     [VertexStream]      (required);
+
+    data:               [ubyte]             (required);
 }
 
 root_type Geometry;

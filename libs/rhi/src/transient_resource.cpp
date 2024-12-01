@@ -117,6 +117,12 @@ namespace rn::rhi
                 InsertPageRange(a.usedPageRanges, { 
                     .startPage = startPage, 
                     .pageCount = pageCount });
+
+                outRegion = {
+                    .allocation = gpuAlloc,
+                    .offsetInAllocation = startPage * TRANSIENT_RESOURCE_PAGE_SIZE,
+                    .regionSize = pageCount * TRANSIENT_RESOURCE_PAGE_SIZE,
+                };
                 break;
             }
         }

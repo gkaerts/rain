@@ -1,0 +1,13 @@
+namespace rn.schema.render;
+
+enum MaterialRenderPass : uint
+{
+    Depth,
+    GBuffer,
+    VBuffer,
+    Forward,
+    DDGI,
+    Reflections,
+
+    Count
+}

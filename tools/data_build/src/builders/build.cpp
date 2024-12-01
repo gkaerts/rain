@@ -1,11 +1,9 @@
 #include "build.hpp"
+#include "toml.hpp"
+#include "usd.hpp"
 
 #include "common/memory/memory.hpp"
 #include "common/memory/vector.hpp"
-
-#include "texture.hpp"
-#include "material_shader.hpp"
-#include "shader.hpp"
 
 #include "flatbuffers/flatbuffers.h"
 #include "asset/schema/asset_generated.h"
@@ -13,13 +11,6 @@
 
 namespace rn
 {
-    constexpr const std::pair<std::string_view, FnBuildAsset> BUILDERS[] = 
-    {
-        { "texture",            BuildTextureAsset },
-        { "material_shader",    BuildMaterialShaderAsset },
-        { "shader",             BuildShader },
-    };
-
     std::ostream& BuildMessage(std::string_view file)
     {
         return std::cout << "Build: " << file << ": ";
@@ -30,96 +21,42 @@ namespace rn
         return std::cerr << "ERROR: " << file << ": ";
     }
 
-    std::ostream& BuildError(std::string_view file, const toml::source_region& source)
-    {
-        return std::cerr << "ERROR: " << file << " (" << source.begin << "): ";
-    }
-
     std::ostream& BuildWarning(std::string_view file)
     {
         return std::cerr << "WARNING: " << file << ": ";
     }
 
-    std::ostream& BuildWarning(std::string_view file, const toml::source_region& source)
+    std::filesystem::path MakeRelativeTo(std::string_view buildFile, std::string_view otherFile)
     {
-        return std::cerr << "WARNING: " << file << " (" << source.begin << "): ";
+        std::filesystem::path buildFilePath = buildFile;
+        std::filesystem::path relBuildFileDirectory = buildFilePath.relative_path().parent_path();
+        return relBuildFileDirectory / otherFile;
     }
 
-    bool ValidateTable(std::string_view file, toml::node& node, const TableSchema& schema)
+    std::filesystem::path MakeRelativeTo(std::string_view buildFile, std::wstring_view otherFile)
     {
-        if (!node.is_table())
-        {
-            BuildError(file, node.source()) << "Node with name " << schema.name << " expected to be of type 'table' but is of type '" << node.type() << "'" << std::endl;
-            return false;
-        }
-
-        toml::table& table = *node.as_table();
-        for (const Field& key : schema.requiredFields)
-        {
-            auto field = table[key.name];
-            if (!field)
-            {
-                BuildError(file, table.source()) << "Required field '" << key.name << "' not found in table [" << schema.name << "]" << std::endl;
-                return false;
-            }
-            else if (field.type() != key.type)
-            {
-                BuildError(file, field.node()->source()) << "Required field '" << key.name << "' in table [" << schema.name << "] is of type '" << field.type() 
-                    << "', but expected type '" << key.type << "'" << std::endl;
-                return false;
-            }
-
-            if (key.fnIsValidValue)
-            {
-                if (!key.fnIsValidValue(file, *field.node()))
-                {
-                    BuildError(file, table.source()) << "Required field '" << key.name << "' has an unsupported value of " << field << "" << std::endl;
-                    return false;
-                }
-            }
-        }
-
-        for (const Field& key : schema.optionalFields)
-        {
-            auto field = table[key.name];
-            if (field && field.type() != key.type)
-            {
-                BuildError(file, field.node()->source()) << "Field '" << key.name << "' in table [" << schema.name << "] is of type '" << field.type() 
-                    << "', but expected type '" << key.type << "'" << std::endl;
-                return false;
-            }
-
-            if (field && key.fnIsValidValue)
-            {
-                if (!key.fnIsValidValue(file, *field.node()))
-                {
-                    BuildError(file, table.source()) << "Field '" << key.name << "' has an unsupported value of " << field << "" << std::endl;
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    bool ValidateArray(std::string_view file, std::string_view name, toml::array* arr, toml::node_type elementType)
-    {
-        if (!arr->empty())
-        {
-            if (!arr->is_homogeneous(elementType))
-            {
-                BuildError(file, arr->source()) << "Array '" << name << "' is expected to be homogeneous and of type '" << elementType << "'" << std::endl;
-                return false;
-            }
-        }
-
-        return true;
+        std::filesystem::path buildFilePath = buildFile;
+        std::filesystem::path relBuildFileDirectory = buildFilePath.relative_path().parent_path();
+        return relBuildFileDirectory / otherFile;
     }
 
     int WriteAssetToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<const uint8_t> assetData, Span<std::string_view> references, Vector<std::string>& outFiles)
     {
+        std::filesystem::path rootDir = options.assetRootDirectory;
+        rootDir = std::filesystem::absolute(rootDir);
+    
         std::filesystem::path buildFilePath = file;
-        std::filesystem::path relBuildFileDirectory = buildFilePath.relative_path().parent_path();
+        buildFilePath = std::filesystem::absolute(buildFilePath);
+
+        std::error_code err;
+        buildFilePath = std::filesystem::relative(buildFilePath, rootDir, err);
+        if (err)
+        {
+            BuildError(file) << "Build file is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
+            return 1;
+        }
+        
+        std::filesystem::path relBuildFileDirectory = buildFilePath.parent_path();
         std::filesystem::path outFilename = buildFilePath.filename();
         outFilename.replace_extension(extension);
 
@@ -138,16 +75,26 @@ namespace rn
             return 1;
         }
 
-        MemoryScope SCOPE;
-
-        flatbuffers::FlatBufferBuilder fbb;
-        ScopedVector<flatbuffers::Offset<flatbuffers::String>> fbReferences(references.size());
+        Vector<std::string> sanitizedRefs;
+        sanitizedRefs.reserve(references.size());
         for (std::string_view ref : references)
         {
-            fbReferences.push_back(fbb.CreateString(ref));
-        }
+            std::filesystem::path refFilePath = ref;
+            refFilePath = std::filesystem::absolute(refFilePath);
 
-        auto referenceVec = fbb.CreateVector(fbReferences);
+            std::error_code err;
+            refFilePath = std::filesystem::relative(refFilePath, rootDir, err);
+            if (err)
+            {
+                BuildError(file) << "Dependent asset \"" << refFilePath << "\" is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
+                return 1;
+            }
+
+            sanitizedRefs.push_back(refFilePath.string());
+        }
+  
+        flatbuffers::FlatBufferBuilder fbb;
+        auto referenceVec = fbb.CreateVectorOfStrings(sanitizedRefs.begin(), sanitizedRefs.end());
         auto dataVec = fbb.CreateVector(assetData.data(), assetData.size());
 
         auto fbRoot = schema::CreateAsset(fbb, referenceVec, dataVec);
@@ -162,8 +109,21 @@ namespace rn
 
     int WriteDataToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<const uint8_t> data, bool writeText, Vector<std::string>& outFiles)
     {
+        std::filesystem::path rootDir = options.assetRootDirectory;
+        rootDir = std::filesystem::absolute(rootDir);
+    
         std::filesystem::path buildFilePath = file;
-        std::filesystem::path relBuildFileDirectory = buildFilePath.relative_path().parent_path();
+        buildFilePath = std::filesystem::absolute(buildFilePath);
+
+        std::error_code err;
+        buildFilePath = std::filesystem::relative(buildFilePath, rootDir, err);
+        if (err)
+        {
+            BuildError(file) << "Build file is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
+            return 1;
+        }
+        
+        std::filesystem::path relBuildFileDirectory = buildFilePath.parent_path();
         std::filesystem::path outFilename = buildFilePath.filename();
         outFilename.replace_extension(extension);
 
@@ -190,12 +150,7 @@ namespace rn
         return 0;
     }
 
-    const TableSchema BUILD_TABLE_SCHEMA = {
-        .name = "build"sv,
-        .requiredFields = {
-            { .name = "type"sv, .type = toml::node_type::string }
-        },
-    };
+    
 
     template <typename TP>
     std::time_t to_time_t(TP tp)
@@ -208,8 +163,21 @@ namespace rn
 
     std::filesystem::path MakeDependenciesPath(std::string_view file, const DataBuildOptions& options)
     {
+        std::filesystem::path rootDir = options.assetRootDirectory;
+        rootDir = std::filesystem::absolute(rootDir);
+    
         std::filesystem::path buildFilePath = file;
-        std::filesystem::path relBuildFileDirectory = buildFilePath.relative_path().parent_path();
+        buildFilePath = std::filesystem::absolute(buildFilePath);
+
+        std::error_code err;
+        buildFilePath = std::filesystem::relative(buildFilePath, rootDir, err);
+        if (err)
+        {
+            BuildError(file) << "Build file is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
+            return "error";
+        }
+        
+        std::filesystem::path relBuildFileDirectory = buildFilePath.parent_path();
         std::filesystem::path outFilename = buildFilePath.filename();
         outFilename.replace_extension("toml");
 
@@ -229,6 +197,11 @@ namespace rn
         auto dependencies = root["dependencies"];
 
         toml::array* depArr = dependencies.as_array();
+        if (!depArr)
+        {
+            return true;
+        }
+
         for (auto& el : *depArr)
         {
             auto& table = *el.as_table();
@@ -259,15 +232,22 @@ namespace rn
         for (const std::string& str : dependencies)
         {
             std::filesystem::path depPath = std::filesystem::absolute(str);
-            std::filesystem::file_time_type lastWriteTime = std::filesystem::last_write_time(depPath);
-            std::time_t tt = to_time_t(lastWriteTime);
+            if (std::filesystem::exists(depPath))
+            {
+                std::filesystem::file_time_type lastWriteTime = std::filesystem::last_write_time(depPath);
+                std::time_t tt = to_time_t(lastWriteTime);
 
-            toml::table depTable { 
-                { "file"sv, depPath.string() },
-                { "time"sv, tt }
-            };
+                toml::table depTable { 
+                    { "file"sv, depPath.string() },
+                    { "time"sv, tt }
+                };
 
-            tomlDeps.push_back(depTable);
+                tomlDeps.push_back(depTable);
+            }
+            else
+            {
+                BuildWarning(file) << "\"" << depPath << "\" listed as a build dependency, but file doesn't exist. Incremental builds might break!" << std::endl;
+            }
         }
 
         auto root = toml::table();
@@ -300,68 +280,36 @@ namespace rn
 
     int DoBuild(std::string_view file, const DataBuildOptions& options)
     {
+        int ret = 0;
         if (!file.empty())
         {
-            if (!DependenciesChanged(file, options))
+            if (!options.force && !DependenciesChanged(file, options))
             {
                 rn::BuildMessage(file) << "File up to date!" << std::endl;
                 return 0;
             }
 
-            try
+            Vector<std::string> dependencies;
+            dependencies.push_back(std::string(options.exeName.data(), options.exeName.size()));
+            dependencies.push_back(std::string(file.data(), file.size()));
+
+            if (file.ends_with(".usd") || file.ends_with(".usda") || file.ends_with(".usdc"))
             {
-                rn::BuildMessage(file) << "Building asset" << std::endl;
-                auto root = toml::parse_file(file);
-
-                auto build = root["build"];
-                if (!build)
-                {
-                    rn::BuildError(file) << "No [build] table found" << std::endl;
-                    return 1;
-                }
-
-                if (!ValidateTable(file, *build.node(), BUILD_TABLE_SCHEMA))
-                {
-                    return 1;
-                }
-
-                std::string_view buildType = build["type"].value_or(""sv);
-                FnBuildAsset onBuildAsset = nullptr;
-                for (const auto& builder : BUILDERS)
-                {
-                    if (builder.first == buildType)
-                    {
-                        onBuildAsset = builder.second;
-                        break;
-                    }
-                }
-
-                if (!onBuildAsset)
-                {
-                    rn::BuildError(file) << "Unknown build type specified: " << buildType << std::endl;
-                    return 1;
-                }
-
-                Vector<std::string> dependencies;
-                dependencies.push_back(std::string(options.exeName.data(), options.exeName.size()));
-                dependencies.push_back(std::string(file.data(), file.size()));
-
-                int ret = onBuildAsset(file, root, options, dependencies);
-                if (ret == 0)
-                {
-                    WriteDependenciesFile(file, options, dependencies);
-                }
-
-                return ret;
+                rn::BuildMessage(file) << "Building USD asset" << std::endl;
+                ret = DoBuildUSD(file, options, dependencies);
             }
-            catch(const toml::parse_error& e)
+            else if (file.ends_with(".toml"))
             {
-                rn::BuildError(file) << "Failed to parse TOML file:" << std::endl;
-                std::cerr << e << std::endl;
-                return 1;
+                rn::BuildMessage(file) << "Building TOML asset" << std::endl;
+                ret = DoBuildTOML(file, options, dependencies);
+            }
+
+            if (ret == 0)
+            {
+                WriteDependenciesFile(file, options, dependencies);
             }
         }
 
-        return 0;
+        return ret;
     }
 }

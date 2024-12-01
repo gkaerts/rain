@@ -26,7 +26,7 @@ namespace rn::asset
             return path.c_str() + extOffset;
         }
 
-        void SanitizePath(String& path)
+        void SanitizePath(String& path, bool maintainTrailingSlash = false)
         {
             // Forward slashes only
             std::replace(path.begin(), path.end(), '\\', '/');
@@ -38,7 +38,7 @@ namespace rn::asset
             });
 
             // No trailing slashes
-            if (path.ends_with("/"))
+            if (!maintainTrailingSlash && path.ends_with("/"))
             {
                 path.pop_back();
             }
@@ -71,7 +71,7 @@ namespace rn::asset
         , _enableMultithreadedLoad(desc.enableMultithreadedLoad)
         , _onMapAsset(desc.onMapAsset)
     {
-        SanitizePath(_contentPrefix);
+        SanitizePath(_contentPrefix, true);
     }
 
     Registry::~Registry()
@@ -116,10 +116,9 @@ namespace rn::asset
                 size_t(handle.second));
 
             String fullPath = _contentPrefix;
-            fullPath.append("/");
             fullPath.append(path);
 
-            MappedAsset* mapping = _onMapAsset(SCOPE, path);
+            MappedAsset* mapping = _onMapAsset(SCOPE, fullPath);
 
             // File is not a valid asset file
             RN_ASSERT(schema::AssetBufferHasIdentifier(mapping->Ptr()));
@@ -211,15 +210,13 @@ namespace rn::asset
                 handleLoadTask.path = path;
                 handleLoadTask.dependencies = dependentHandles;
 
-                if (references)
+                if (references && !references->empty())
                 {
                     size_t dependencyIdx = 0;
                     for (const flatbuffers::String* reference : *references)
                     {
                         String& referencePath = sanitizedReferenceStrings[dependencyIdx];
-                        referencePath = _contentPrefix;
-                        referencePath.append("/");
-                        referencePath.append(reference->c_str());
+                        referencePath = reference->c_str();
                         SanitizePath(referencePath);
 
                         ResolveAssetDependencyTask& dependencyTask = referenceTasks[dependencyIdx];
