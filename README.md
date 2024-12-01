@@ -25,7 +25,9 @@ Here's an overview of what I'll be working on next:
 * **Rendering Features Library**: Collection of various fun rendering features - **Not started**
 
 ## Dependencies
-Some dependencies are set up as git submodules (see [contrib/submodules](https://github.com/gkaerts/rain/tree/master/contrib/submodules)), while others are downloaded during configuration using a custom premake module. 
+Some dependencies are set up as git submodules (see [contrib/submodules](https://github.com/gkaerts/rain/tree/master/contrib/submodules)), while others are downloaded during configuration using a custom premake module.
+
+OpenUSD is its own beast and will require a one-time command to be run to download and build the library. This currently makes the first time setup take a long amount of time, and I'd like to provide the option in the future to disable the inclusion of OpenUSD in case no tinkering with the asset import pipeline is required.
 
 Here's a list of external libraries used:
 * [**basis_universal**](https://github.com/BinomialLLC/basis_universal)
