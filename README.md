@@ -14,6 +14,8 @@ Additionally I'd like to integrate my TBDR-specific Vulkan rendering engine into
 * [**Application**](https://github.com/gkaerts/rain/tree/master/libs/application): Event processing, window management
 * [**Render Graph**](https://github.com/gkaerts/rain/tree/master/libs/render_graph): Simple frame graph style render pass management
 * [**Asset**](https://github.com/gkaerts/rain/tree/master/libs/asset): Library for defining and processing asset types. Will be extended to include support for asset tooling.
+* [**Data**](https://github.com/gkaerts/rain/tree/master/libs/data): Data/asset schema definitions and their accompanying asset loading code
+* [**usd**](https://github.com/gkaerts/rain/tree/master/libs/usd): OpenUSD plugins
 
 ## Coming Up
 
@@ -23,13 +25,20 @@ Here's an overview of what I'll be working on next:
 * **Rendering Features Library**: Collection of various fun rendering features - **Not started**
 
 ## Dependencies
-Most dependencies are set up as git submodules (see [contrib/submodules](https://github.com/gkaerts/rain/tree/master/contrib/submodules)), although some are directly included in the repo where a direct build from source is not immediately feasible (see [contrib/third_party](https://github.com/gkaerts/rain/tree/master/contrib/third_party)). I'd like to aggressively cut down on including third party libraries directly wherever possible, so some of these might turn into submodules.
+Some dependencies are set up as git submodules (see [contrib/submodules](https://github.com/gkaerts/rain/tree/master/contrib/submodules)), while others are downloaded during configuration using a custom premake module.
+
+OpenUSD is its own beast and will require a one-time command to be run to download and build the library. This currently makes the first time setup take a long amount of time, and I'd like to provide the option in the future to disable the inclusion of OpenUSD in case no tinkering with the asset import pipeline is required.
 
 Here's a list of external libraries used:
+* [**basis_universal**](https://github.com/BinomialLLC/basis_universal)
 * [**enkiTS**](https://github.com/dougbinks/enkiTS)
+* [**flatbuffers**](https://github.com/google/flatbuffers)
+* [**googletest**](https://github.com/google/googletest)
+* [**meshoptimizer**](https://github.com/zeux/meshoptimizer)
+* [**MikkTSpace**](https://github.com/mmikk/MikkTSpace)
+* [**mio**](https://github.com/vimpunk/mio)
+* [**OpenUSD**](https://github.com/PixarAnimationStudios/OpenUSD)
 * [**spdlog**](https://github.com/gabime/spdlog)
 * [**unordered_dense**](https://github.com/martinus/unordered_dense)
 * [**hlslpp**](https://github.com/redorav/hlslpp)
 * [**SDL**](https://github.com/libsdl-org/SDL)
-* [**flatbuffers**](https://github.com/google/flatbuffers)
-* [**mio**](https://github.com/vimpunk/mio)
