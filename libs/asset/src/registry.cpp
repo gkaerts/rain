@@ -3,10 +3,11 @@
 #include "common/log/log.hpp"
 #include "mio/mio.hpp"
 
-#include "asset/schema/asset_generated.h"
-
 #include "common/task/scheduler.hpp"
 #include "TaskScheduler.h"
+
+#include "asset_gen.hpp"
+#include "luagen/schema.hpp"
 
 
 namespace rn::asset
@@ -15,15 +16,15 @@ namespace rn::asset
 
     namespace
     {
-        const char* PathExtension(const String& path)
+        const std::string_view PathExtension(const std::string_view& path)
         {
             size_t extOffset = path.find_last_of('.');
-            if (extOffset == String::npos)
+            if (extOffset == std::string_view::npos)
             {
-                return nullptr;
+                return {};
             }
 
-            return path.c_str() + extOffset;
+            return path.substr(extOffset);
         }
 
         void SanitizePath(String& path, bool maintainTrailingSlash = false)
@@ -55,7 +56,7 @@ namespace rn::asset
                 RN_ASSERT(err.value() == 0);
             }
 
-            const void* Ptr() const override { return _source.data(); }
+            virtual Span<const uint8_t> Ptr() const override { return { reinterpret_cast<const uint8_t*>(_source.data()), _source.length() }; }
 
             mio::mmap_source _source;
         };
@@ -85,16 +86,16 @@ namespace rn::asset
         _handleIDToBank.clear();
     }
 
-    Asset Registry::LoadInternal(const char* identifier, LoadFlags flags)
+    Asset Registry::LoadInternal(std::string_view identifier, LoadFlags flags)
     {
         MemoryScope SCOPE;
-        String path = identifier;
+        String path = { identifier.data(), identifier.size() };
 
         SanitizePath(path);
-        const char* ext = PathExtension(path);
+        const std::string_view ext = PathExtension(path);
 
         // Invalid identifier
-        RN_ASSERT(ext);
+        RN_ASSERT(!ext.empty());
         StringHash extHash = HashString(ext);
 
         auto bankIt = _extensionHashToBank.find(extHash);
@@ -121,9 +122,10 @@ namespace rn::asset
             MappedAsset* mapping = _onMapAsset(SCOPE, fullPath);
 
             // File is not a valid asset file
-            RN_ASSERT(schema::AssetBufferHasIdentifier(mapping->Ptr()));
-            const schema::Asset* asset = schema::GetAsset(mapping->Ptr());
-            const auto* references = asset->references();
+            
+            auto fnAlloc = [](size_t size) { return ScopedAlloc(size, CACHE_LINE_TARGET_SIZE); };
+
+            const schema::Asset asset = rn::Deserialize<schema::Asset>(mapping->Ptr(), fnAlloc);
 
             if (_enableMultithreadedLoad)
             {
@@ -135,7 +137,7 @@ namespace rn::asset
                     BankBase* bank = nullptr;
                     const schema::Asset* asset = nullptr;
                     Asset destHandle = Asset::Invalid;
-                    const char* identifier;
+                    std::string_view identifier;
                     String path;
 
                     Span<Asset> dependencies;
@@ -147,7 +149,7 @@ namespace rn::asset
                         uint32_t dependencyIdx = 0;
                         for (Asset dependency : dependencies)
                         {
-                            String ext = PathExtension(asset->references()->Get(dependencyIdx)->c_str());
+                            std::string_view ext = PathExtension(asset->references[dependencyIdx]);
                             StringHash extHash = HashString(ext);
 
                             auto bankIt = registry->_extensionHashToBank.find(extHash);
@@ -158,8 +160,8 @@ namespace rn::asset
                             {
                                 LogInfo(LogCategory::Asset, "Asset \"{}\" is waiting on dependency {} ({})", 
                                     path.c_str(), 
-                                    dependencyIdx, 
-                                    asset->references()->Get(dependencyIdx)->c_str());
+                                    dependencyIdx,
+                                    asset->references[dependencyIdx]);
                                 allDependenciesResident = false;
                                 break;
                             }
@@ -170,8 +172,9 @@ namespace rn::asset
                         {
                             bank->Store(destHandle, {
                                 .identifier = identifier,
-                                .data = { asset->asset_data()->data(), asset->asset_data()->size() },
-                                .dependencies = dependencies
+                                .data = asset->assetData,
+                                .dependencies = dependencies,
+                                .registry = registry
                             });
                         }
                         else
@@ -191,11 +194,11 @@ namespace rn::asset
 
                     void ExecuteRange(enki::TaskSetPartition range_, uint32_t threadnum_) override
                     {
-                        *destHandle = registry->LoadInternal(referencePath.c_str(), flags);
+                        *destHandle = registry->LoadInternal(referencePath, flags);
                     }
                 };
 
-                size_t referenceCount = references ? references->size() : 0;
+                size_t referenceCount = asset.references.size();
                 ScopedVector<enki::Dependency> taskDependencies(referenceCount);
                 ScopedVector<ResolveAssetDependencyTask> referenceTasks(referenceCount);
                 ScopedVector<Asset> dependentHandles(referenceCount);
@@ -204,19 +207,19 @@ namespace rn::asset
                 HandleAssetLoadTask handleLoadTask;
                 handleLoadTask.registry = this;
                 handleLoadTask.bank = bank;
-                handleLoadTask.asset = asset;
+                handleLoadTask.asset = &asset;
                 handleLoadTask.destHandle = handle.second;
                 handleLoadTask.identifier = identifier;
                 handleLoadTask.path = path;
                 handleLoadTask.dependencies = dependentHandles;
 
-                if (references && !references->empty())
+                if (!asset.references.empty())
                 {
                     size_t dependencyIdx = 0;
-                    for (const flatbuffers::String* reference : *references)
+                    for (const std::string_view reference : asset.references)
                     {
                         String& referencePath = sanitizedReferenceStrings[dependencyIdx];
-                        referencePath = reference->c_str();
+                        referencePath = { reference.data(), reference.length() };
                         SanitizePath(referencePath);
 
                         ResolveAssetDependencyTask& dependencyTask = referenceTasks[dependencyIdx];
@@ -251,19 +254,18 @@ namespace rn::asset
             else
             {
                 ScopedVector<Asset> dependencies;
-                if (references)
+                dependencies.reserve(asset.references.size());
+                for (std::string_view reference : asset.references)
                 {
-                    dependencies.reserve(references->size());
-                    for (const flatbuffers::String* reference : *references)
-                    {
-                        dependencies.push_back(LoadInternal(reference->c_str(), flags));
-                    }
+                    dependencies.push_back(LoadInternal(reference, flags));
                 }
+                
 
                 bank->Store(handle.second, {
                     .identifier = identifier,
-                    .data = { asset->asset_data()->data(), asset->asset_data()->size() },
-                    .dependencies = dependencies
+                    .data = asset.assetData,
+                    .dependencies = dependencies,
+                    .registry = this
                 });
             }
         }

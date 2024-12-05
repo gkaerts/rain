@@ -53,6 +53,7 @@ namespace rn
     StringHash HashString(const wchar_t* ptr);
     StringHash HashString(const String& str);
     StringHash HashString(const WString& str);
+    StringHash HashString(const std::string_view& str);
 
     template <size_t N> StringHash HashString(const char(&ptr)[N]) { return HashString(ptr, N); }
     template <size_t N> StringHash HashString(const wchar_t(&ptr)[N]) { return HashString(ptr, N); }

@@ -29,7 +29,7 @@ namespace rn
     std::filesystem::path MakeRelativeTo(std::string_view buildFile, std::wstring_view otherFile);
 
     void WriteDependenciesFile(std::string_view file, const DataBuildOptions& options, Span<const std::string> dependencies);
-    int WriteAssetToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<const uint8_t> assetdata, Span<std::string_view> references, Vector<std::string>& outFiles);
-    int WriteDataToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<const uint8_t> data, bool writeText, Vector<std::string>& outFiles);
+    int WriteAssetToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<uint8_t> assetdata, Span<std::string_view> references, Vector<std::string>& outFiles);
+    int WriteDataToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<uint8_t> data, bool writeText, Vector<std::string>& outFiles);
     int DoBuild(std::string_view file, const DataBuildOptions& options);
 }

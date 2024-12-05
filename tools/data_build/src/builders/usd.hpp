@@ -9,6 +9,7 @@
 #pragma warning(pop)
 
 #include "build.hpp"
+#include <filesystem>
 
 namespace rn
 {
@@ -33,6 +34,7 @@ namespace rn
         return outValue;
     }
 
+    std::filesystem::path MakeAssetReferencePath(std::string_view file, const pxr::SdfAssetPath& path, const std::filesystem::path& extension);
     bool IsNonEmptyAssetPath(std::string_view file, const pxr::UsdAttribute& prop);
     bool IsNonEmptyString(std::string_view file, const pxr::UsdAttribute& prop);
     pxr::SdfPathVector ResolveRelationTargets(const pxr::UsdRelationship& rel);

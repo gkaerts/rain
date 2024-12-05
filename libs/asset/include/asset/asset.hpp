@@ -11,6 +11,8 @@
 
 namespace rn::asset
 {
+    class Registry;
+
     RN_MEMORY_CATEGORY(Asset);
 
     enum class Asset : uint64_t
@@ -20,9 +22,10 @@ namespace rn::asset
 
     struct AssetBuildDesc
     {
-        const char* identifier;
+        const std::string_view identifier;
         Span<const uint8_t> data;
         Span<const Asset> dependencies;
+        const Registry* registry;
     };
 
     template <typename HandleType, typename DataType>

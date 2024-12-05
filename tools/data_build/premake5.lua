@@ -27,6 +27,7 @@ project "data_build"
     }
 
     includedirs(RN_COMMON_INCLUDES)
+    includedirs(RN_RHI_INCLUDES)
     includedirs(RN_ASSET_INCLUDES)
     includedirs(RN_DATA_INCLUDES)
     includedirs(RN_BASIS_INCLUDES)

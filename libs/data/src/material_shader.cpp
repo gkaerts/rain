@@ -1,10 +1,8 @@
 #include "data/material_shader.hpp"
 #include "data/texture.hpp"
 
-#include "asset/schema/reference_generated.h"
-#include "data/schema/common_generated.h"
-#include "data/schema/render_pass_generated.h"
-#include "data/schema/material_shader_generated.h"
+#include "material_shader_gen.hpp"
+#include "luagen/schema.hpp"
 
 #include "common/log/log.hpp"
 
@@ -15,31 +13,9 @@ namespace rn::data
 {
     namespace
     {
-        static_assert(CountOf<MaterialRenderPass>() == CountOf<schema::render::MaterialRenderPass>());
-
-        rhi::ShaderBytecode ToShaderBytecode(const schema::render::Bytecode* bytecode)
+        rhi::ShaderBytecode ToShaderBytecode(const schema::Bytecode& bytecode)
         {
-            if (!bytecode)
-            {
-                return {};
-            }
-
-            return { bytecode->d3d12_pc()->data(), bytecode->d3d12_pc()->size() };
-        }
-
-        constexpr const MaterialShaderParameterType PARAMETER_TYPES[] = 
-        {
-            MaterialShaderParameterType::Count,
-            MaterialShaderParameterType::Texture,
-            MaterialShaderParameterType::FloatVec,
-            MaterialShaderParameterType::UintVec,
-            MaterialShaderParameterType::IntVec,
-        };
-        static_assert(RN_ARRAY_SIZE(PARAMETER_TYPES) == int(schema::render::ParameterType::MAX) + 1);
-
-        MaterialShaderParameterType ToMaterialShaderParameterType(schema::render::ParameterType type)
-        {
-            return PARAMETER_TYPES[int(type)];
+            return bytecode.d3d12;
         }
 
         void PopulateRenderStateForPass(MaterialRenderPass pass,  rhi::VertexRasterPipelineDesc& desc)
@@ -73,26 +49,18 @@ namespace rn::data
         }
 
         template <typename NumericType, typename SchemaLimits>
-        void PopulateNumericLimits(NumericMaterialShaderParam<NumericType>& dest, const SchemaLimits* limits)
+        void PopulateNumericLimits(NumericMaterialShaderParam<NumericType>& dest, const SchemaLimits& limits)
         {
-            dest.dimension = std::min(limits->dimension(), uint32_t(dest.CAPACITY));
-            if (limits->default_())
-            {
-                size_t count = std::min(dest.dimension, limits->default_()->size());
-                std::memcpy(dest.defaultValue, limits->default_()->data(), count * sizeof(NumericType));
-            }
+            dest.dimension = std::min(limits.dimension, uint32_t(dest.CAPACITY));
 
-            if (limits->min())
-            {
-                size_t count = std::min(dest.dimension, limits->min()->size());
-                std::memcpy(dest.minValue, limits->min()->data(), count * sizeof(NumericType));
-            }
+            size_t count = std::min(size_t(dest.dimension), limits.defaultValue.size());
+            std::memcpy(dest.defaultValue, limits.defaultValue.data(), count * sizeof(NumericType));
 
-            if (limits->max())
-            {
-                size_t count = std::min(dest.dimension, limits->max()->size());
-                std::memcpy(dest.maxValue, limits->max()->data(), count * sizeof(NumericType));
-            }
+            count = std::min(size_t(dest.dimension), limits.minValue.size());
+            std::memcpy(dest.minValue, limits.minValue.data(), count * sizeof(NumericType));
+
+            count = std::min(size_t(dest.dimension), limits.maxValue.size());
+            std::memcpy(dest.maxValue, limits.maxValue.data(), count * sizeof(NumericType));
         }
     }
 
@@ -103,144 +71,134 @@ namespace rn::data
     MaterialShaderData MaterialShaderBuilder::Build(const asset::AssetBuildDesc& desc)
     {
         using namespace schema;
-        const render::MaterialShader* asset = render::GetMaterialShader(desc.data.data());
+        MemoryScope SCOPE;
+        schema::MaterialShader asset = rn::Deserialize<schema::MaterialShader>(desc.data, [](size_t size) { return ScopedAlloc(size, CACHE_LINE_TARGET_SIZE); });
 
         size_t rasterPassCount = 0;
-        rasterPassCount += asset->vertex_raster_passes() ? asset->vertex_raster_passes()->size() : 0;
-        rasterPassCount += asset->mesh_raster_passes() ? asset->mesh_raster_passes()->size() : 0;
+        rasterPassCount += asset.vertexRasterPasses.size();
+        rasterPassCount += asset.meshRasterPasses.size();
 
-        size_t rtPassCount = asset->ray_tracing_passes() ? asset->ray_tracing_passes()->size() : 0;
+        size_t rtPassCount = asset.rayTracingPasses.size();
 
         MaterialShaderRasterPass* rasterPasses = rasterPassCount ? TrackedNewArray<MaterialShaderRasterPass>(MemoryCategory::Data, rasterPassCount) : nullptr;
         MaterialShaderRTPass* rtPasses = rtPassCount ? TrackedNewArray<MaterialShaderRTPass>(MemoryCategory::Data, rtPassCount) : nullptr;
 
         uint32_t rasterPassIdx = 0;
-        if (asset->vertex_raster_passes())
+        for (const schema::VertexRasterPass& pass : asset.vertexRasterPasses)
         {
-            for (const render::VertexRasterPass* pass : *asset->vertex_raster_passes())
-            {
-                rhi::VertexRasterPipelineDesc pipelineDesc = {
-                    .flags = rhi::RasterPipelineFlags::RequiresInputLayoutForDrawID,
-                    .vertexShaderBytecode = ToShaderBytecode(pass->vertex_shader()),
-                    .pixelShaderBytecode = ToShaderBytecode(pass->pixel_shader())
-                };
+            rhi::VertexRasterPipelineDesc pipelineDesc = {
+                .flags = rhi::RasterPipelineFlags::RequiresInputLayoutForDrawID,
+                .vertexShaderBytecode = pass.vertexShader.d3d12,
+                .pixelShaderBytecode = pass.pixelShader.d3d12
+            };
 
-                MaterialRenderPass materialPass = static_cast<MaterialRenderPass>(pass->render_pass());
-                PopulateRenderStateForPass(materialPass, pipelineDesc);
+            PopulateRenderStateForPass(pass.renderPass, pipelineDesc);
 
-                rasterPasses[rasterPassIdx++] = {
-                    .type = RasterPassType::Vertex,
-                    .renderPass = materialPass,
-                    .pipeline = _device->CreateRasterPipeline(pipelineDesc)
-                };
-            }
+            rasterPasses[rasterPassIdx++] = {
+                .type = RasterPassType::Vertex,
+                .renderPass = pass.renderPass,
+                .pipeline = _device->CreateRasterPipeline(pipelineDesc)
+            };
+        }
+        
+        for (const schema::MeshRasterPass& pass : asset.meshRasterPasses)
+        {
+            rhi::MeshRasterPipelineDesc pipelineDesc = {
+                .amplificationShaderBytecode = pass.ampShader.d3d12,
+                .meshShaderBytecode = pass.meshShader.d3d12,
+                .pixelShaderBytecode = pass.pixelShader.d3d12
+            };
+
+            PopulateRenderStateForPass(pass.renderPass, pipelineDesc);
+
+            rasterPasses[rasterPassIdx++] = {
+                .type = RasterPassType::Mesh,
+                .renderPass = pass.renderPass,
+                .pipeline = _device->CreateRasterPipeline(pipelineDesc)
+            };
+        }
+        
+        uint32_t rtPassIdx = 0;
+        for (const schema::RayTracingPass& pass : asset.rayTracingPasses)
+        {
+            rtPasses[rtPassIdx++] = {
+                .renderPass = pass.renderPass,
+                .closestHit = { pass.closestHitExport.data(), pass.closestHitExport.size() },
+                .anyHit = { pass.anyHitExport.data(), pass.anyHitExport.size() },
+                .hitGroup = { pass.hitGroupName.data(), pass.hitGroupName.size() }
+            };
+        }
+        
+
+        size_t parameterCount = 0;
+        for (const schema::ParameterGroup& group : asset.parameterGroups)
+        {
+            parameterCount += group.textureParameters.size();
+            parameterCount += group.floatVecParameters.size();
+            parameterCount += group.uintVecParameters.size();
+            parameterCount += group.intVecParameters.size();
         }
 
-        if (asset->mesh_raster_passes())
+        MaterialShaderParameter* parameters = TrackedNewArray<MaterialShaderParameter>(MemoryCategory::Data, parameterCount);
+
+        uint32_t paramIdx = 0;
+        for (const schema::ParameterGroup& group : asset.parameterGroups)
         {
-            for (const render::MeshRasterPass* pass : *asset->mesh_raster_passes())
+            for (const schema::TextureParameter& p : group.textureParameters)
             {
-                rhi::MeshRasterPipelineDesc pipelineDesc = {
-                    .amplificationShaderBytecode = ToShaderBytecode(pass->amp_shader()),
-                    .meshShaderBytecode = ToShaderBytecode(pass->mesh_shader()),
-                    .pixelShaderBytecode = ToShaderBytecode(pass->pixel_shader())
-                };
-
-                MaterialRenderPass materialPass = static_cast<MaterialRenderPass>(pass->render_pass());
-                PopulateRenderStateForPass(materialPass, pipelineDesc);
-
-                rasterPasses[rasterPassIdx++] = {
-                    .type = RasterPassType::Mesh,
-                    .renderPass = materialPass,
-                    .pipeline = _device->CreateRasterPipeline(pipelineDesc)
+                MaterialShaderParameter& param = parameters[paramIdx++];
+                param.type = MaterialShaderParameterType::Texture;
+                param.name = { p.name.data(), p.name.size() };
+                param.offsetInMaterialData = p.offsetInBuffer;
+                param.pTexture = {
+                    .type = p.type,
+                    .defaultValue = Texture(desc.dependencies[p.defaultValue.identifier])
                 };
             }
-        }
 
-        if (asset->ray_tracing_passes())
-        {
-            uint32_t rtPassIdx = 0;
-            for (const render::RayTracingPass* pass : *asset->ray_tracing_passes())
+            for (const schema::FloatVecParameter& p : group.floatVecParameters)
             {
-                rtPasses[rtPassIdx++] = {
-                    .renderPass = static_cast<MaterialRenderPass>(pass->render_pass()),
-                    .closestHit = pass->closest_hit_export()->c_str(),
-                    .anyHit = pass->any_hit_export()->c_str(),
-                    .hitGroup = pass->hit_group_name()->c_str()
-                };
-            }
-        }
-
-        MaterialShaderParameter* parameters = nullptr;
-        uint32_t parameterCount = 0;
-        if (asset->parameter_groups())
-        {
-            for (const render::ParameterGroup* group : *asset->parameter_groups())
-            {
-                parameterCount += group->parameters()->size();
+                MaterialShaderParameter& param = parameters[paramIdx++];
+                param.type = MaterialShaderParameterType::FloatVec;
+                param.name = { p.name.data(), p.name.size() };
+                param.offsetInMaterialData = p.offsetInBuffer;
+                PopulateNumericLimits(param.pFloatVec, p);
             }
 
-            parameters = TrackedNewArray<MaterialShaderParameter>(MemoryCategory::Data, parameterCount);
-
-            uint32_t paramIdx = 0;
-            for (const render::ParameterGroup* group : *asset->parameter_groups())
+            for (const schema::UintVecParameter& p : group.uintVecParameters)
             {
-                for (const render::Parameter* p : *group->parameters())
-                {
-                    MaterialShaderParameter& param = parameters[paramIdx++];
-                    param.type = ToMaterialShaderParameterType(p->data_type());
-                    param.name = p->name()->c_str();
-                    param.offsetInMaterialData = p->offset_in_buffer();
-                    
-                    switch (p->data_type())
-                    {
-                        case render::ParameterType::TextureParameter:
-                        {
-                            const render::TextureParameter* texture = p->data_as_TextureParameter();
-                            param.pTexture = {
-                                .dimension = TextureMaterialShaderDimension(texture->dimension()),
-                                .defaultValue = texture->default_() ?
-                                    Texture(desc.dependencies[texture->default_()->identifier()]) : 
-                                    Texture::Invalid,
-                            };
-                        }
-                        break;
-                        case render::ParameterType::FloatVecParameter:
-                        {
-                            const render::FloatVecParameter* floatVec = p->data_as_FloatVecParameter();
-                            PopulateNumericLimits(param.pFloatVec, floatVec);
-                        }
-                        break;
-                        case render::ParameterType::UintVecParameter:
-                        {
-                            const render::UintVecParameter* uintVec = p->data_as_UintVecParameter();
-                            PopulateNumericLimits(param.pUintVec, uintVec);
-                        }
-                        break;
-                        case render::ParameterType::IntVecParameter:
-                        {
-                            const render::IntVecParameter* intVec = p->data_as_IntVecParameter();
-                            PopulateNumericLimits(param.pIntVec, intVec);
-                        }
-                        break;
-                    }
-                }
+                MaterialShaderParameter& param = parameters[paramIdx++];
+                param.type = MaterialShaderParameterType::UintVec;
+                param.name = { p.name.data(), p.name.size() };
+                param.offsetInMaterialData = p.offsetInBuffer;
+                PopulateNumericLimits(param.pFloatVec, p);
+            }
+
+            for (const schema::IntVecParameter& p : group.intVecParameters)
+            {
+                MaterialShaderParameter& param = parameters[paramIdx++];
+                param.type = MaterialShaderParameterType::IntVec;
+                param.name = { p.name.data(), p.name.size() };
+                param.offsetInMaterialData = p.offsetInBuffer;
+                PopulateNumericLimits(param.pFloatVec, p);
             }
         }
+        
 
         Span<uint8_t> rtLibrary = {};
-        if (asset->ray_tracing_library())
+        if (asset.rayTracingLibrary.d3d12.size())
         {
-            uint32_t libSize = asset->ray_tracing_library()->d3d12_pc()->size();
+            size_t libSize = asset.rayTracingLibrary.d3d12.size();
             rtLibrary = { TrackedNewArray<uint8_t>(MemoryCategory::Data, libSize), libSize };
-            std::memcpy(rtLibrary.data(), asset->ray_tracing_library()->d3d12_pc()->data(), libSize);
+            std::memcpy(rtLibrary.data(), asset.rayTracingLibrary.d3d12.data(), libSize);
         }
 
         MaterialShaderData outData = {
             .rasterPasses = { rasterPasses, rasterPassCount },
             .rtPasses = {rtPasses, rtPassCount },
             .parameters = {parameters, parameterCount },
-            .rtLibrary = rtLibrary
+            .rtLibrary = rtLibrary,
+            .uniformBufferSize = asset.uniformDataSize
         };
 
         return outData;

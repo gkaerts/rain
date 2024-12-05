@@ -1,8 +1,0 @@
-namespace rn.schema;
-
-attribute "reference_type";
-
-struct Reference
-{
-    identifier: uint;
-}

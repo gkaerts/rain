@@ -6,7 +6,7 @@ def MaterialShader "MaterialShader"
 
     uniform string[] defines = []
     uniform string[] includeDirs = [
-        "libs/engine_shaders/include"
+        "../../../../../libs/engine_shaders/include"
     ]
 
     rel renderPasses = [

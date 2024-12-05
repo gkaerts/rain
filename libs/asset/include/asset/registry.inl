@@ -153,7 +153,7 @@ namespace rn::asset
     }
 
     template <typename HandleType>
-    HandleType Registry::Load(const char* identifier, LoadFlags flags)
+    HandleType Registry::Load(std::string_view identifier, LoadFlags flags)
     {
         return HandleType(LoadInternal(identifier, flags));
     }

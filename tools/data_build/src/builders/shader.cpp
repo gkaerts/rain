@@ -156,7 +156,7 @@ namespace rn
         std::string extension = TARGET_API_CONFIGS[int(api)].extension;
         extension += ".hpp";
 
-        return (WriteDataToDisk(file, extension, options, { reinterpret_cast<const uint8_t*>(outString.c_str()), outString.length()}, true, outFiles) == 0);
+        return (WriteDataToDisk(file, extension, options, { reinterpret_cast<uint8_t*>(outString.data()), outString.length()}, true, outFiles) == 0);
     }
 
     void WriteShaderPDBs(std::string_view file, Span<const ShaderCompilationResult> results, Span<const EntryPoint> entryPoints, TargetAPI api, const DataBuildOptions& options, Vector<std::string>& outFiles)
@@ -184,7 +184,7 @@ namespace rn
             extension += TARGET_API_CONFIGS[int(api)].extension;
             extension += ".pdb";
 
-            WriteDataToDisk(file, extension, options, { static_cast<const uint8_t*>(pdb->GetBufferPointer()), pdb->GetBufferSize()}, false, outFiles);
+            WriteDataToDisk(file, extension, options, { static_cast<uint8_t*>(pdb->GetBufferPointer()), pdb->GetBufferSize()}, false, outFiles);
         }
     }
 

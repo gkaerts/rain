@@ -6,6 +6,19 @@ project "rnData"
     cppdialect "C++20"
     flags { "FatalWarnings", "MultiProcessorCompile" }
 
+    codegenfiles {
+        "schema/**.lua"
+    }
+
+    codegentargets {
+        "cpp"
+    }
+
+    codegenimportdirs {
+        "schema",
+        "../asset/schema",
+    }
+
     files { 
         "src/**.h", 
         "src/**.hpp", 
@@ -13,19 +26,14 @@ project "rnData"
         "src/**.cpp", 
         "include/**.h",
         "include/**.hpp", 
-        "schema/**.fbs",
+        PROJECT_ROOT .. "/build/codegen/rnData/**.hpp",
+        PROJECT_ROOT .. "/build/codegen/rnData/**.cpp",
     }
     
     RN_DATA_INCLUDES = {
         "%{wks.location}/../../libs/data/include",
-        GENERATED_FILE_PATH
+        PROJECT_ROOT .. "/build/codegen/rnData",
     }
-
-    RN_DATA_SCHEMA_INCLUDES = {
-        "%{wks.location}/../../libs/"
-    }
-
-    compile_schema_files(GENERATED_FILE_PATH .. "/data", RN_DATA_SCHEMA_INCLUDES)
 
     includedirs(RN_COMMON_INCLUDES)
     includedirs(RN_ASSET_INCLUDES)
@@ -39,7 +47,7 @@ project "rnData"
 
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
     
-    dependson { "flatc", "basisu", "basisu_encoder" }
+    dependson { "basisu", "basisu_encoder" }
     links { "rnCommon", "rnAsset", "rnRHI" }
 
 if BUILD_PROPERTIES.IncludeTestsInBuild then

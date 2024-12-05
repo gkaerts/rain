@@ -25,10 +25,10 @@
 #include "common/memory/span.hpp"
 #include "common/memory/hash_map.hpp"
 
-#include "asset/schema/reference_generated.h"
-#include "data/schema/common_generated.h"
-#include "data/schema/render_pass_generated.h"
-#include "data/schema/material_shader_generated.h"
+#include "data/material_shader.hpp"
+#include "data/texture.hpp"
+#include "material_shader_gen.hpp"
+#include "luagen/schema.hpp"
 
 #include "shader.hpp"
 #include "d3d12shader.h"
@@ -41,14 +41,14 @@ namespace rn
     constexpr const uint32_t INVALID_ENTRYPOINT = 0xFFFFFFFF;
     struct VertexRasterPass
     {
-        schema::render::MaterialRenderPass renderPass;
+        data::MaterialRenderPass renderPass;
         uint32_t vertexShader = INVALID_ENTRYPOINT;
         uint32_t pixelShader = INVALID_ENTRYPOINT;
     };
 
     struct MeshRasterPass
     {
-        schema::render::MaterialRenderPass renderPass;
+        data::MaterialRenderPass renderPass;
         uint32_t ampShader = INVALID_ENTRYPOINT;
         uint32_t meshShader = INVALID_ENTRYPOINT;
         uint32_t pixelShader = INVALID_ENTRYPOINT;
@@ -56,7 +56,7 @@ namespace rn
 
     struct RayTracingPass
     {
-        schema::render::MaterialRenderPass renderPass;
+        data::MaterialRenderPass renderPass;
         std::string hitGroupName;
         std::string closestHitShader;
         std::string anyHitShader;
@@ -74,7 +74,7 @@ namespace rn
     };
     struct Parameter
     {
-        schema::render::ParameterType type;
+        data::MaterialShaderParameterType type;
         std::string name;
         std::string param;
         uint32_t offsetInBuffer;
@@ -82,7 +82,7 @@ namespace rn
         std::string texture = "";
         union
         {
-            schema::render::TextureParameterDimension textureDimension;
+            data::TextureType textureType;
             TypedNumericalParameter<float> pFloat;
             TypedNumericalParameter<uint> pUint;
             TypedNumericalParameter<int> pInt;
@@ -113,27 +113,40 @@ namespace rn
         return std::filesystem::path(str).wstring();
     }
 
-    schema::render::MaterialRenderPass ToRenderPass(std::string_view typeStr)
+    constexpr const std::string_view MATERIAL_RENDER_PASS_NAMES[] = 
     {
-        uint32_t idx = 0;
-        for (int i = 0; i < CountOf<schema::render::MaterialRenderPass>(); ++i)
+        "depth",
+        "gbuffer",
+        "vbuffer",
+        "forward",
+        "ddgi",
+        "reflections",
+    };
+    RN_MATCH_ENUM_AND_ARRAY(MATERIAL_RENDER_PASS_NAMES, data::MaterialRenderPass);
+
+    data::MaterialRenderPass ToRenderPass(std::string_view typeStr)
+    {
+        std::string paramStr = { typeStr.data(), typeStr.size() };
+        std::transform(paramStr.cbegin(), paramStr.cend(), paramStr.begin(), [](char c) { return std::tolower(c); });
+        for (int i = 0; i < CountOf<data::MaterialRenderPass>(); ++i)
         {
-            if (typeStr == schema::render::EnumNameMaterialRenderPass(schema::render::MaterialRenderPass(i)))
+            if (paramStr == MATERIAL_RENDER_PASS_NAMES[i])
             {
-                return schema::render::MaterialRenderPass(idx);
+                return data::MaterialRenderPass(i);
             }
-            ++idx;
         }
 
-        return schema::render::MaterialRenderPass::Count;
+        return data::MaterialRenderPass::Count;
     }
 
     bool IsValidRenderPassName(std::string_view file, const pxr::UsdAttribute& prop)
     {
         std::string paramStr = Value<pxr::TfToken>(prop).GetString();
-        for (int i = 0; i < CountOf<schema::render::MaterialRenderPass>(); ++i)
+        std::transform(paramStr.cbegin(), paramStr.cend(), paramStr.begin(), [](char c) { return std::tolower(c); });
+
+        for (int i = 0; i < CountOf<data::MaterialRenderPass>(); ++i)
         {
-            if (paramStr == schema::render::EnumNameMaterialRenderPass(schema::render::MaterialRenderPass(i)))
+            if (paramStr == MATERIAL_RENDER_PASS_NAMES[i])
             {
                 return true;
             }
@@ -270,6 +283,7 @@ namespace rn
 
         outShader.source = ToWString(source.GetAssetPath());
 
+        std::filesystem::path relBuildFileDirectory = std::filesystem::path(file).parent_path();
         for (const std::string& tok : defines)
         {
             outShader.defines.push_back(ToWString(tok));
@@ -277,7 +291,8 @@ namespace rn
 
         for (const std::string& tok : includeDirs)
         {
-            outShader.includeDirs.push_back(ToWString(tok));
+            std::filesystem::path absInclude = relBuildFileDirectory / tok;
+            outShader.includeDirs.push_back(absInclude.wstring());
         }
 
         outFiles.push_back(MakeRelativeTo(file, outShader.source).string());
@@ -383,7 +398,7 @@ namespace rn
             auto maxValues =        Value<pxr::VtArray<float>>(param.GetMaxValueAttr());
 
             outParam = {
-                .type = schema::render::ParameterType::FloatVecParameter,
+                .type = data::MaterialShaderParameterType::FloatVec,
                 .name = prim.GetName().GetString(),
                 .param = Value<pxr::TfToken>(param.GetHlslParamAttr()).GetString(),
                 .pFloat = {
@@ -408,7 +423,7 @@ namespace rn
             auto maxValues =        Value<pxr::VtArray<uint32_t>>(param.GetMaxValueAttr());
 
             outParam = {
-                .type = schema::render::ParameterType::UintVecParameter,
+                .type = data::MaterialShaderParameterType::UintVec,
                 .name = prim.GetName().GetString(),
                 .param = Value<pxr::TfToken>(param.GetHlslParamAttr()).GetString(),
                 .pUint = {
@@ -433,7 +448,7 @@ namespace rn
             auto maxValues =        Value<pxr::VtArray<int32_t>>(param.GetMaxValueAttr());
 
             outParam = {
-                .type = schema::render::ParameterType::IntVecParameter,
+                .type = data::MaterialShaderParameterType::IntVec,
                 .name = prim.GetName().GetString(),
                 .param = Value<pxr::TfToken>(param.GetHlslParamAttr()).GetString(),
                 .pUint = {
@@ -453,19 +468,20 @@ namespace rn
             }
 
             pxr::RnMaterialShaderParamTexture param(prim);
-            std::string resolvedDefault = Value<pxr::SdfAssetPath>(param.GetDefaultValueAttr()).GetAssetPath();
-            std::filesystem::path defaultPath = MakeRelativeTo(file, resolvedDefault);
-            defaultPath.replace_extension("texture");
+            
+            std::filesystem::path texturePath = MakeAssetReferencePath(file,
+                Value<pxr::SdfAssetPath>(param.GetDefaultValueAttr()), 
+                "texture");
 
             pxr::TfToken dimension = Value<pxr::TfToken>(param.GetDimensionAttr());
             outParam = {
-                .type = schema::render::ParameterType::TextureParameter,
+                .type = data::MaterialShaderParameterType::Texture,
                 .name = prim.GetName().GetString(),
                 .param = Value<pxr::TfToken>(param.GetHlslParamAttr()).GetString(),
-                .texture = defaultPath.string(),
-                .textureDimension = dimension == TOKEN_3D ?
-                    schema::render::TextureParameterDimension::_3D :
-                    schema::render::TextureParameterDimension::_2D
+                .texture = texturePath.string(),
+                .textureType = dimension == TOKEN_3D ?
+                    data::TextureType::Texture3D :
+                    data::TextureType::Texture2D
             };
         }
         else
@@ -615,15 +631,14 @@ namespace rn
 
     constexpr const UniformParameterType CORRESPONDING_UNIFORM_TYPES[] =
     {
-        UniformParameterType::Count,    // ParameterType::NONE
         UniformParameterType::Uint,     // ParameterType::TextureParameter
         UniformParameterType::Float,    // ParameterType::FloatVecParameter
         UniformParameterType::Uint,     // ParameterType::UintVecParameter
         UniformParameterType::Int,      // ParameterType::IntVecParameter
     };
-    static_assert(RN_ARRAY_SIZE(CORRESPONDING_UNIFORM_TYPES) == int(schema::render::ParameterType::MAX) + 1);
+    RN_MATCH_ENUM_AND_ARRAY(CORRESPONDING_UNIFORM_TYPES, data::MaterialShaderParameterType)
 
-    bool ReflectMaterialFromExportShader(std::string_view file, IDxcResult* result, Span<ParameterGroup> paramGroups)
+    bool ReflectMaterialFromExportShader(std::string_view file, IDxcResult* result, Span<ParameterGroup> paramGroups, uint32_t& outUniformBufferSize)
     {
         ComPtr<IDxcUtils> dxcUtils;
         DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(dxcUtils.GetAddressOf()));
@@ -651,6 +666,8 @@ namespace rn
         ID3D12ShaderReflectionConstantBuffer* cbuffer = reflection->GetConstantBufferByIndex(0);
         D3D12_SHADER_BUFFER_DESC cbufferDesc{};
         cbuffer->GetDesc(&cbufferDesc);
+
+        outUniformBufferSize = cbufferDesc.Size;
 
         UniformParameterMap reflectedUniforms;
         if (cbufferDesc.Variables > 0)
@@ -709,17 +726,17 @@ namespace rn
                 uint32_t paramElementSize = 0;
                 switch (param.type)
                 {
-                    case schema::render::ParameterType::FloatVecParameter:
+                    case data::MaterialShaderParameterType::FloatVec:
                         paramDimensions = param.pFloat.dimension;
                         paramElementSize = sizeof(param.pFloat.defaultValue[0]);
                     break;
 
-                    case schema::render::ParameterType::UintVecParameter:
+                    case data::MaterialShaderParameterType::UintVec:
                         paramDimensions = param.pUint.dimension;
                         paramElementSize = sizeof(param.pUint.defaultValue[0]);
                     break;
 
-                    case schema::render::ParameterType::IntVecParameter:
+                    case data::MaterialShaderParameterType::IntVec:
                         paramDimensions = param.pInt.dimension;
                         paramElementSize = sizeof(param.pInt.defaultValue[0]);
                     break;
@@ -750,6 +767,8 @@ namespace rn
 
     int BuildShadersAndWriteAsset(std::string_view file, MaterialShader& shader, Vector<EntryPoint>& entryPoints, const DataBuildOptions& options, Vector<std::string>& outFiles)
     {
+        using namespace data;
+
         uint32_t rayTracingLib = INVALID_ENTRYPOINT;
         if (!shader.rayTracingPasses.empty())
         {
@@ -767,152 +786,197 @@ namespace rn
             return 1;
         }
 
-        if (!ReflectMaterialFromExportShader(file, results[materialExport].result.Get(), shader.parameterGroups))
+        uint32_t uniformDataSize = 0;
+        if (!ReflectMaterialFromExportShader(file, results[materialExport].result.Get(), shader.parameterGroups, uniformDataSize))
         {
             return 1;
         }
-        
-        flatbuffers::FlatBufferBuilder fbb;
-        auto ResultToFBByteCode = [&](uint32_t entryPointIdx) -> flatbuffers::Offset<schema::render::Bytecode>
+
+        auto ResultToByteCode = [&](uint32_t entryPointIdx) -> schema::Bytecode
         {
-            flatbuffers::Offset<flatbuffers::Vector<uint8_t>> vec = 0;
             if (entryPointIdx != INVALID_ENTRYPOINT)
             {
                 ComPtr<IDxcBlob> obj;
                 results[entryPointIdx].result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(obj.GetAddressOf()), nullptr);
-                vec = fbb.CreateVector(static_cast<const uint8_t*>(obj->GetBufferPointer()), obj->GetBufferSize());
-                return schema::render::CreateBytecode(fbb, vec, 0);
+
+                Span<uint8_t> bytecode = { static_cast<uint8_t*>(ScopedAlloc(obj->GetBufferSize(), CACHE_LINE_TARGET_SIZE)), obj->GetBufferSize() };
+                std::memcpy(bytecode.data(), obj->GetBufferPointer(), obj->GetBufferSize());
+
+                return {
+                    .d3d12 = bytecode,
+                    .vulkan = {}
+                };
             }
 
-            return 0;
+            return {};
         };
+        
+        ScopedVector<schema::VertexRasterPass> vertexRasterPasses;
+        vertexRasterPasses.reserve(shader.vertexRasterPasses.size());
 
-        Vector<flatbuffers::Offset<schema::render::VertexRasterPass>> fbVertexRasterPasses;
         for (const VertexRasterPass& pass : shader.vertexRasterPasses)
         {
-            fbVertexRasterPasses.push_back(
-                schema::render::CreateVertexRasterPass(
-                    fbb,
-                    pass.renderPass,
-                    ResultToFBByteCode(pass.vertexShader),
-                    ResultToFBByteCode(pass.pixelShader)));
+            vertexRasterPasses.push_back({
+                .renderPass = pass.renderPass,
+                .vertexShader = ResultToByteCode(pass.vertexShader),
+                .pixelShader = ResultToByteCode(pass.pixelShader)
+            });
+
         }
 
-        Vector<flatbuffers::Offset<schema::render::MeshRasterPass>> fbMeshRasterPasses;
+        ScopedVector<schema::MeshRasterPass> meshRasterPasses;
+        meshRasterPasses.reserve(shader.meshRasterPasses.size());
         for (const MeshRasterPass& pass : shader.meshRasterPasses)
         {
-            fbMeshRasterPasses.push_back(
-                schema::render::CreateMeshRasterPass(
-                    fbb,
-                    pass.renderPass,
-                    ResultToFBByteCode(pass.ampShader),
-                    ResultToFBByteCode(pass.meshShader),
-                    ResultToFBByteCode(pass.pixelShader)));
+            meshRasterPasses.push_back({
+                .renderPass = pass.renderPass,
+                .meshShader = ResultToByteCode(pass.meshShader),
+                .ampShader = ResultToByteCode(pass.ampShader),
+                .pixelShader = ResultToByteCode(pass.pixelShader)
+            });
         }
 
-        Vector<flatbuffers::Offset<schema::render::RayTracingPass>> fbRTPasses;
+        ScopedVector<schema::RayTracingPass> rtPasses;
+        rtPasses.reserve(shader.rayTracingPasses.size());
         for (const RayTracingPass& pass : shader.rayTracingPasses)
         {
-            fbRTPasses.push_back(
-                    schema::render::CreateRayTracingPassDirect(
-                    fbb,
-                    pass.renderPass,
-                    pass.hitGroupName.c_str(),
-                    pass.closestHitShader.c_str(),
-                    pass.anyHitShader.c_str()));
+            rtPasses.push_back({
+                .renderPass = pass.renderPass,
+                .hitGroupName = pass.hitGroupName,
+                .closestHitExport = pass.closestHitShader,
+                .anyHitExport = pass.anyHitShader
+            });
         }
 
-        Vector<std::string_view> references;
-        auto PushReference = [](Vector<std::string_view>& references, const std::string_view& ref) -> uint32_t
+        ScopedVector<std::string_view> references;
+        references.reserve(32);
+        auto PushReference = [](ScopedVector<std::string_view>& references, const std::string_view& ref) -> uint32_t
         {
             uint32_t idx = uint32_t(references.size());
             references.push_back(ref);
             return idx;
         };
 
-        Vector<flatbuffers::Offset<schema::render::ParameterGroup>> fbParamGroups;
-        for (const ParameterGroup& paramGroup : shader.parameterGroups)
-        {
-            MemoryScope SCOPE;
-            ScopedVector<flatbuffers::Offset<schema::render::Parameter>> fbParams;
-            fbParams.reserve(paramGroup.parameters.size());
+        ScopedVector<schema::ParameterGroup> paramGroups;
+        paramGroups.reserve(shader.parameterGroups.size());
 
-            for (const Parameter& param : paramGroup.parameters)
+        ScopedVector<schema::TextureParameter> textureParams;
+        textureParams.reserve(32);
+        size_t textureOffset = 0;
+
+        ScopedVector<schema::FloatVecParameter> floatVecParams;
+        floatVecParams.reserve(32);
+        size_t floatVecOffset = 0;
+
+        ScopedVector<schema::UintVecParameter> uintVecParams;
+        uintVecParams.reserve(32);
+        size_t uintVecOffset = 0;
+
+        ScopedVector<schema::IntVecParameter> intVecParams;
+        intVecParams.reserve(32);
+        size_t intVecOffset = 0;
+
+        for (ParameterGroup& paramGroup : shader.parameterGroups)
+        {
+            size_t textureCount = 0;
+            size_t floatVecCount = 0;
+            size_t uintVecCount = 0;
+            size_t intVecCount = 0;
+            for (Parameter& param : paramGroup.parameters)
             {
-                flatbuffers::Offset<> paramData = 0;
                 switch(param.type)
                 {
-                    case schema::render::ParameterType::TextureParameter:
+                    case data::MaterialShaderParameterType::Texture:
                     {
-                        schema::Reference ref;
-                        schema::Reference* refPtr = nullptr;
+                        asset::schema::Reference ref = {};
                         if (!param.texture.empty())
                         {
-                            ref = schema::Reference(PushReference(references, param.texture));
-                            refPtr = &ref;
+                            ref = { .identifier = PushReference(references, param.texture) };
                         }
 
-                        paramData = schema::render::CreateTextureParameter(fbb,
-                            param.textureDimension,
-                            refPtr).Union();
+                        textureParams.push_back({
+                            .name = param.name,
+                            .offsetInBuffer = param.offsetInBuffer,
+                            .type = param.textureType,
+                            .defaultValue = ref
+                        });
+
+                        ++textureCount;
                     }
                     break;
-                    case schema::render::ParameterType::FloatVecParameter:
+                    case data::MaterialShaderParameterType::FloatVec:
                     {
-                        paramData = schema::render::CreateFloatVecParameter(fbb,
-                            param.pFloat.dimension,
-                            fbb.CreateVector<float>(param.pFloat.defaultValue, param.pFloat.dimension), 
-                            fbb.CreateVector<float>(param.pFloat.min, param.pFloat.dimension),
-                            fbb.CreateVector<float>(param.pFloat.max, param.pFloat.dimension)).Union();
+                        floatVecParams.push_back({
+                            .name = param.name,
+                            .offsetInBuffer = param.offsetInBuffer,
+                            .dimension = param.pFloat.dimension,
+                            .defaultValue = { param.pFloat.defaultValue, param.pFloat.dimension },
+                            .minValue = { param.pFloat.min, param.pFloat.dimension },
+                            .maxValue = { param.pFloat.max, param.pFloat.dimension }
+                        });
+
+                        ++floatVecCount;
                     }
                     break;
-                    case schema::render::ParameterType::UintVecParameter:
+                    case data::MaterialShaderParameterType::UintVec:
                     {
-                        paramData = schema::render::CreateUintVecParameter(fbb,
-                            param.pUint.dimension,
-                            fbb.CreateVector<uint32_t>(param.pUint.defaultValue, param.pUint.dimension), 
-                            fbb.CreateVector<uint32_t>(param.pUint.min, param.pUint.dimension),
-                            fbb.CreateVector<uint32_t>(param.pUint.max, param.pUint.dimension)).Union();
+                        uintVecParams.push_back({
+                            .name = param.name,
+                            .offsetInBuffer = param.offsetInBuffer,
+                            .dimension = param.pFloat.dimension,
+                            .defaultValue = { param.pUint.defaultValue, param.pUint.dimension },
+                            .minValue = { param.pUint.min, param.pUint.dimension },
+                            .maxValue = { param.pUint.max, param.pUint.dimension },
+                        });
+
+                        ++uintVecCount;
                     }
                     break;
-                    case schema::render::ParameterType::IntVecParameter:
+                    case data::MaterialShaderParameterType::IntVec:
                     {
-                        paramData = schema::render::CreateIntVecParameter(fbb, 
-                            param.pInt.dimension,
-                            fbb.CreateVector<int32_t>(param.pInt.defaultValue, param.pInt.dimension), 
-                            fbb.CreateVector<int32_t>(param.pInt.min, param.pInt.dimension),
-                            fbb.CreateVector<int32_t>(param.pInt.max, param.pInt.dimension)).Union();
+                        intVecParams.push_back({
+                            .name = param.name,
+                            .offsetInBuffer = param.offsetInBuffer,
+                            .dimension = param.pFloat.dimension,
+                            .defaultValue = { param.pInt.defaultValue, param.pInt.dimension },
+                            .minValue = { param.pInt.min, param.pInt.dimension },
+                            .maxValue = { param.pInt.max, param.pInt.dimension },
+                        });
+
+                        ++intVecCount;
                     }
                     break;
                 }
-
-                fbParams.push_back(schema::render::CreateParameterDirect(
-                    fbb,
-                    param.name.c_str(),
-                    param.offsetInBuffer,
-                    param.type,
-                    paramData));
             }
 
-            auto fbParamVec = fbb.CreateVector(fbParams.data(), fbParams.size());
-            fbParamGroups.push_back(
-                schema::render::CreateParameterGroup(
-                    fbb,
-                    fbb.CreateString(paramGroup.name),
-                    fbParamVec));
+            paramGroups.push_back({
+                .name = paramGroup.name,
+                .textureParameters = { textureParams.data() + textureOffset, textureCount },
+                .floatVecParameters = { floatVecParams.data() + floatVecOffset, floatVecCount },
+                .uintVecParameters = { uintVecParams.data() + uintVecOffset, uintVecCount },
+                .intVecParameters = { intVecParams.data() + intVecOffset, intVecCount },
+            });
+
+            textureOffset += textureCount;
+            floatVecOffset += floatVecCount;
+            uintVecOffset += uintVecCount;
+            intVecOffset += intVecCount;
         }
 
+        schema::MaterialShader outShader = {
+            .vertexRasterPasses = vertexRasterPasses,
+            .meshRasterPasses = meshRasterPasses,
+            .rayTracingPasses = rtPasses,
+            .parameterGroups = paramGroups,
+            .uniformDataSize = uniformDataSize,
+            .rayTracingLibrary = ResultToByteCode(rayTracingLib),
+        };
 
-        auto fbRoot = schema::render::CreateMaterialShader(
-            fbb,
-            fbb.CreateVector(fbVertexRasterPasses.data(), fbVertexRasterPasses.size()),
-            fbb.CreateVector(fbMeshRasterPasses.data(), fbMeshRasterPasses.size()),
-            ResultToFBByteCode(rayTracingLib),
-            fbb.CreateVector(fbRTPasses.data(), fbRTPasses.size()),
-            fbb.CreateVector(fbParamGroups.data(), fbParamGroups.size()));
+        size_t serializedSize = schema::MaterialShader::SerializedSize(outShader);
+        Span<uint8_t> outData = { static_cast<uint8_t*>(ScopedAlloc(serializedSize, CACHE_LINE_TARGET_SIZE)), serializedSize };
+        rn::Serialize<schema::MaterialShader>(outData, outShader);
         
-        fbb.Finish(fbRoot, schema::render::MaterialShaderIdentifier());
-        return WriteAssetToDisk(file, schema::render::MaterialShaderExtension(), options, fbb.GetBufferSpan(), references, outFiles);
+        return WriteAssetToDisk(file, ".material_shader", options, outData, references, outFiles);
     }
 
     int ProcessUsdMaterialShader(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)

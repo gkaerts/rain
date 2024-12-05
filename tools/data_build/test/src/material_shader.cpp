@@ -45,6 +45,7 @@ TEST(DataBuildTests_MaterialShader, IntegrationTest_MaterialShader)
     const data::MaterialShaderData* shaderData = registry.Resolve<data::MaterialShader, data::MaterialShaderData>(shader);
     EXPECT_EQ(shaderData->rasterPasses.size(), 1);
     EXPECT_EQ(shaderData->parameters.size(), 2);
+    EXPECT_NE(shaderData->uniformBufferSize, 0);
     
     const data::MaterialShaderRasterPass& pass = shaderData->rasterPasses[0];
     EXPECT_NE(pass.pipeline, rhi::RasterPipeline::Invalid);
@@ -54,7 +55,7 @@ TEST(DataBuildTests_MaterialShader, IntegrationTest_MaterialShader)
     const data::MaterialShaderParameter& param0 = shaderData->parameters[0];
     EXPECT_EQ(param0.type, data::MaterialShaderParameterType::Texture);
     EXPECT_EQ(param0.name, "ColorTexture");
-    EXPECT_EQ(param0.pTexture.dimension, data::TextureMaterialShaderDimension::_2D);
+    EXPECT_EQ(param0.pTexture.type, data::TextureType::Texture2D);
     EXPECT_NE(param0.pTexture.defaultValue, data::Texture::Invalid);
 
     const data::MaterialShaderParameter& param1 = shaderData->parameters[1];

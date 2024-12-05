@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include "asset/registry.hpp"
 
-#include "flatbuffers/flatbuffers.h"
-#include "asset/schema/asset_generated.h"
+#include "asset_gen.hpp"
+#include "luagen/schema.hpp"
 
 using namespace rn;
 
@@ -49,16 +49,22 @@ namespace
     public:
         MappedTestAsset(const String& path)
         {
-            flatbuffers::Offset<schema::Asset> root;
             if (path == "test_asset_1.test_asset")
             {
                 TestType data = {
                     .data = 0xDEADBEEF
                 };
+                
+                asset::schema::Asset asset = {
+                    .identifier = ".test_asset",
+                    .references = {},
+                    .assetData = { reinterpret_cast<uint8_t*>(&data), sizeof(data) }
+                };
 
-                auto fbData = _fbb.CreateVector<uint8_t>(reinterpret_cast<uint8_t*>(&data), sizeof(data));
-                root = schema::CreateAsset(_fbb, 0, fbData);
-                 _fbb.Finish(root, schema::AssetIdentifier());
+                uint64_t size = asset::schema::Asset::SerializedSize(asset);
+                _assetData.resize(size);
+
+                rn::Serialize<asset::schema::Asset>(_assetData, asset);
             }
 
             else if (path == "test_asset_2.test_asset")
@@ -67,18 +73,25 @@ namespace
                     .data = 0xDABABADA
                 };
 
-                auto fbData = _fbb.CreateVector<uint8_t>(reinterpret_cast<uint8_t*>(&data), sizeof(data));
-                root = schema::CreateAsset(_fbb, 0, fbData);
-                _fbb.Finish(root, schema::AssetIdentifier());
+                asset::schema::Asset asset = {
+                    .identifier = ".test_asset",
+                    .references = {},
+                    .assetData = { reinterpret_cast<uint8_t*>(&data), sizeof(data) }
+                };
+
+                uint64_t size = asset::schema::Asset::SerializedSize(asset);
+                _assetData.resize(size);
+
+                rn::Serialize<asset::schema::Asset>(_assetData, asset);
             }
         }
 
-        const void* Ptr() const override
+        Span<const uint8_t> Ptr() const override
         {
-            return _fbb.GetBufferPointer();
+            return _assetData;
         }
 
-        flatbuffers::FlatBufferBuilder _fbb;
+        Vector<uint8_t> _assetData;
     };
 
     asset::MappedAsset* MapTestAsset(MemoryScope& scope, const String& path)

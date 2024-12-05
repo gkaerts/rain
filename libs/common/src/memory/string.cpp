@@ -44,4 +44,9 @@ namespace rn
     {
         return HashString(str.data(), str.length());
     }
+
+    StringHash HashString(const std::string_view& str)
+    {
+        return HashString(str.data(), str.length());
+    }
 }

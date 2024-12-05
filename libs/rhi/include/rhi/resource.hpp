@@ -3,6 +3,7 @@
 #include "common/common.hpp"
 #include "common/math/math.hpp"
 #include "rhi/handles.hpp"
+#include <string_view>
 
 namespace rn::rhi
 {
@@ -52,12 +53,16 @@ namespace rn::rhi
 	enum class IndexFormat : uint32_t
 	{
 		Uint16,
-		Uint32
+		Uint32,
+
+		Count
 	};
 
 	enum class PositionFormat : uint32_t
 	{
 		XYZFloat,
+
+		Count
 	};
 
 	struct GPUMemoryRegion
@@ -157,7 +162,7 @@ namespace rn::rhi
     {
         BufferCreationFlags flags;
         uint32_t size;
-        const char* name;
+        std::string_view name;
     };
 
     struct Texture2DDesc
@@ -169,7 +174,7 @@ namespace rn::rhi
         uint32_t mipLevels;
         TextureFormat format;
         const ClearValue* optClearValue;
-        const char* name;
+        std::string_view name;
     };
 
     struct Texture3DDesc
@@ -181,7 +186,7 @@ namespace rn::rhi
 		uint32_t mipLevels;
 		TextureFormat format;
 		const ClearValue* optClearValue;
-		const char* name;
+		std::string_view name;
     };
 
     struct RenderTargetViewDesc

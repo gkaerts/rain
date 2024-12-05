@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/common.hpp"
+#include "common/memory/span.hpp"
 #include "asset/asset.hpp"
 
 namespace rn::asset
@@ -17,7 +18,7 @@ namespace rn::asset
     class MappedAsset
     {
     public:
-        virtual const void* Ptr() const = 0;
+        virtual Span<const uint8_t> Ptr() const = 0;
     };
 
     using FnMapAsset = MappedAsset*(*)(MemoryScope& scope, const String& path);
@@ -41,14 +42,14 @@ namespace rn::asset
         void RegisterAssetType(const AssetTypeDesc<HandleType, DataType>& desc);
 
         template <typename HandleType>
-        HandleType Load(const char* identifier, LoadFlags flags = LoadFlags::None);
+        HandleType Load(std::string_view identifier, LoadFlags flags = LoadFlags::None);
 
         template <typename HandleType, typename DataType>
         const DataType* Resolve(HandleType handle) const;
 
     private:
 
-        Asset LoadInternal(const char* identifier, LoadFlags flags);
+        Asset LoadInternal(std::string_view identifier, LoadFlags flags);
 
         using BankMap = HashMap<size_t, BankBase*>;
 

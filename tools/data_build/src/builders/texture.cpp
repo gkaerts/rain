@@ -7,12 +7,12 @@
 #include "build.hpp"
 #include "usd.hpp"
 #include "texture.hpp"
+#include "texture_gen.hpp"
+#include "luagen/schema.hpp"
 
-#include "data/schema/texture_generated.h"
 #include "encoder/basisu_enc.h"
 #include "encoder/basisu_comp.h"
 
-#include "flatbuffers/flatbuffers.h"
 #include <filesystem>
 
 namespace rn
@@ -20,7 +20,7 @@ namespace rn
     struct Texture
     {
         std::string sourceImage;
-        schema::render::Usage usage;
+        data::schema::TextureUsage usage;
     };
 
     constexpr const std::string_view SUPPORTED_IMAGE_TYPES[] = 
@@ -52,12 +52,22 @@ namespace rn
         return IsValidImageFileFormat(str.GetAssetPath());
     }
 
-     bool IsValidUsageValue(std::string_view usage)
-     {
+    constexpr std::string_view TEXTURE_USAGE_NAMES[] = {
+        "Diffuse",
+        "Normal",
+        "Control",
+        "UI",
+        "LUT",
+        "Heightmap",
+    };
+    RN_MATCH_ENUM_AND_ARRAY(TEXTURE_USAGE_NAMES, data::schema::TextureUsage);
+
+    bool IsValidUsageValue(std::string_view usage)
+    {
         bool validUsage = false;
-        for (int i = 0; i < int(schema::render::Usage::Count); ++i)
+        for (int i = 0; i < CountOf<data::schema::TextureUsage>(); ++i)
         {
-            if (usage == schema::render::EnumNamesUsage()[i])
+            if (usage == TEXTURE_USAGE_NAMES[i])
             {
                 validUsage = true;
                 break;
@@ -65,7 +75,7 @@ namespace rn
         }
 
         return validUsage;
-     }
+    }
 
     bool IsValidUsageValue(std::string_view file, const pxr::UsdAttribute& attr)
     {
@@ -73,14 +83,16 @@ namespace rn
         return IsValidUsageValue(str.GetString());
     }
 
-    schema::render::Usage UsageFromString(std::string_view usage)
+    
+
+    data::schema::TextureUsage UsageFromString(std::string_view usage)
     {
-        schema::render::Usage outUsage = schema::render::Usage::Count;
-        for (int i = 0; i < int(schema::render::Usage::Count); ++i)
+        data::schema::TextureUsage outUsage = data::schema::TextureUsage::Count;
+        for (int i = 0; i < CountOf<data::schema::TextureUsage>(); ++i)
         {
-            if (usage == schema::render::EnumNamesUsage()[i])
+            if (usage == TEXTURE_USAGE_NAMES[i])
             {
-                outUsage = schema::render::Usage(i);
+                outUsage = data::schema::TextureUsage(i);
                 break;
             }
         }
@@ -129,11 +141,11 @@ namespace rn
 
         switch (inputs.usage)
         {
-        case schema::render::Usage::Diffuse:
+        case data::schema::TextureUsage::Diffuse:
             // -mipmap
             params.m_mip_gen = true;
         break;
-        case schema::render::Usage::Normal:
+        case data::schema::TextureUsage::Normal:
             // -mipmap
             params.m_mip_gen = true;
 
@@ -149,7 +161,7 @@ namespace rn
             params.m_swizzle[2] = 0;
             params.m_swizzle[3] = 1;
         break;
-        case schema::render::Usage::Control:
+        case data::schema::TextureUsage::Control:
             // -mipmap
             params.m_mip_gen = true;
 
@@ -159,13 +171,13 @@ namespace rn
             // -mip-linear
             params.m_mip_srgb = false;
         break;
-        case schema::render::Usage::UI:
+        case data::schema::TextureUsage::UI:
         break;
-        case schema::render::Usage::LUT:
+        case data::schema::TextureUsage::LUT:
              // -linear
             params.m_perceptual = false;
         break;
-        case schema::render::Usage::Heightmap:
+        case data::schema::TextureUsage::Heightmap:
              // -linear
             params.m_perceptual = false;
         break;
@@ -190,18 +202,21 @@ namespace rn
             return 1;
         }
         
-        const basisu::uint8_vec& basisData = compressor.get_output_basis_file();
+        // I know we're copying here, but we'd need to copy this data over anyway for serialization :(
+        basisu::uint8_vec basisData = compressor.get_output_basis_file();
 
-        flatbuffers::FlatBufferBuilder fbb;
-        auto dataVec = fbb.CreateVector(reinterpret_cast<const uint8_t*>(basisData.data()), basisData.size());
-        auto fbRoot = schema::render::CreateTexture(
-            fbb,
-            schema::render::TextureDataFormat::Basis,
-            inputs.usage,
-            dataVec);
-        fbb.Finish(fbRoot, schema::render::TextureIdentifier());
-        
-        return WriteAssetToDisk(file, schema::render::TextureExtension(), options, fbb.GetBufferSpan(), {}, outFiles);
+        using namespace data;
+        schema::Texture outTexture = {
+            .dataFormat = schema::TextureDataFormat::Basis,
+            .usage = inputs.usage,
+            .data = basisData
+        };
+
+        uint64_t serializedSize = schema::Texture::SerializedSize(outTexture);
+        Span<uint8_t> outData = { static_cast<uint8_t*>(ScopedAlloc(serializedSize, CACHE_LINE_TARGET_SIZE)), serializedSize };
+        rn::Serialize<schema::Texture>(outData, outTexture);
+
+        return WriteAssetToDisk(file, ".texture", options, outData, {}, outFiles);
     }
 
     int ProcessUsdTexture(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)

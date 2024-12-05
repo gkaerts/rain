@@ -26,6 +26,9 @@ namespace rn::data
     RN_HANDLE(Texture);
     RN_DEFINE_HANDLE(MaterialShader, 0x42)
 
+    // See texture.hpp
+    enum class TextureType : uint32_t;
+
     enum class MaterialRenderPass : uint32_t
     {
         Depth,
@@ -57,16 +60,10 @@ namespace rn::data
         T minValue[CAPACITY];
         T maxValue[CAPACITY];
     };
-
-    enum class TextureMaterialShaderDimension : uint32_t
-    {
-        _2D = 0,
-        _3D
-    };
     
     struct TextureMaterialShaderParam
     {
-        TextureMaterialShaderDimension dimension;
+        TextureType type;
         Texture defaultValue;
     };
 
@@ -115,6 +112,7 @@ namespace rn::data
         Span<const MaterialShaderRTPass>        rtPasses;
         Span<const MaterialShaderParameter>     parameters;
         rhi::ShaderBytecode                     rtLibrary;
+        uint32_t                                uniformBufferSize;
     };
 
     class MaterialShaderBuilder : public asset::Builder<MaterialShader, MaterialShaderData>

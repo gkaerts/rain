@@ -5,17 +5,18 @@
 
 
 #include "geometry.hpp"
+#include "data/geometry.hpp"
 
 #include "common/memory/vector.hpp"
 #include "common/math/math.hpp"
 
+#include "rhi/resource.hpp"
+
 #include "meshoptimizer.h"
 #include "mikktspace.h"
 
-#include "flatbuffers/flatbuffers.h"
-
-#include "data/schema/common_generated.h"
-#include "data/schema/geometry_generated.h"
+#include "geometry_gen.hpp"
+#include "luagen/schema.hpp"
 
 namespace rn
 {
@@ -542,8 +543,9 @@ namespace rn
 
 
     constexpr const uint32_t GEOMETRY_DATA_STREAM_ALIGNMENT = 64;
-    template <typename T> schema::render::BufferRegion CalculateStreamAlignedOffsetAndSize(const Vector<T>& vec, size_t& outTotalSizeAppend)
+    template <typename T> data::schema::BufferRegion CalculateStreamAlignedOffsetAndSize(const Vector<T>& vec, size_t& outTotalSizeAppend)
     {
+        data::schema::BufferRegion outRegion = {};
         size_t size = 0;
         if (!vec.empty())
         {
@@ -553,46 +555,62 @@ namespace rn
             size_t offset = outTotalSizeAppend;
             outTotalSizeAppend += alignedSize;
 
-            return schema::render::BufferRegion(uint32_t(offset), uint32_t(unalignedSize));
+            outRegion = {
+                .offsetInBytes = uint32_t(offset),
+                .sizeInBytes = uint32_t(unalignedSize)
+            };
         }
-        return schema::render::BufferRegion();
+        return outRegion;
     }
 
-    template <typename T> void WriteStreamToDataBuffer(uint8_t* data, const Vector<T>& vec, const schema::render::BufferRegion region)
+    template <typename T> void WriteStreamToDataBuffer(uint8_t* data, const Vector<T>& vec, const data::schema::BufferRegion region)
     {
         if (!vec.empty())
         {
-            std::memcpy(data + region.offset_in_bytes(), vec.data(), region.size_in_bytes());
+            std::memcpy(data + region.offsetInBytes, vec.data(), region.sizeInBytes);
         }
     }
 
-    void AppendStreamIfNotEmpty(const schema::render::BufferRegion& region, schema::render::VertexStreamType type, schema::render::VertexStreamFormat format, uint32_t componentCount, uint32_t stride, Vector<schema::render::VertexStream>& outStreams)
+    void AppendStreamIfNotEmpty(
+        const data::schema::BufferRegion& region, 
+        data::schema::VertexStreamType type, 
+        data::VertexStreamFormat format, 
+        uint32_t componentCount, 
+        uint32_t stride, 
+        ScopedVector<data::schema::VertexStream>& outStreams)
     {
-        if (region.size_in_bytes() > 0)
+        if (region.sizeInBytes > 0)
         {
-            outStreams.emplace_back(region, type, format, componentCount, stride);
+            outStreams.push_back({
+                .region = region,
+                .type = type,
+                .format = format,
+                .componentCount = componentCount,
+                .stride = stride
+            });
         }
     }
 
     bool BuildAsset(std::string_view file, const DataBuildOptions& options, std::string meshName, const RawGeometryData& geometry, Vector<std::string>& outFiles)
     {
+        using namespace data;
+        MemoryScope SCOPE;
+
         size_t dataBufferSize = 0;
 
-        using namespace schema;
-        render::BufferRegion positionRegion   = CalculateStreamAlignedOffsetAndSize(geometry.positions, dataBufferSize);
-        render::BufferRegion normalsRegion    = CalculateStreamAlignedOffsetAndSize(geometry.normals, dataBufferSize);
-        render::BufferRegion texcoordsRegion  = CalculateStreamAlignedOffsetAndSize(geometry.texcoords, dataBufferSize);
-        render::BufferRegion tangentsRegion   = CalculateStreamAlignedOffsetAndSize(geometry.tangents, dataBufferSize);
-
+        schema::BufferRegion positionRegion   = CalculateStreamAlignedOffsetAndSize(geometry.positions, dataBufferSize);
+        schema::BufferRegion normalsRegion    = CalculateStreamAlignedOffsetAndSize(geometry.normals, dataBufferSize);
+        schema::BufferRegion texcoordsRegion  = CalculateStreamAlignedOffsetAndSize(geometry.texcoords, dataBufferSize);
+        schema::BufferRegion tangentsRegion   = CalculateStreamAlignedOffsetAndSize(geometry.tangents, dataBufferSize);
 
         struct PartRegions
         {
-             render::BufferRegion indicesRegion;
-             render::BufferRegion meshletVerticesRegion;
-             render::BufferRegion meshletIndicesRegion;
+            schema::BufferRegion indicesRegion;
+            schema::BufferRegion meshletVerticesRegion;
+            schema::BufferRegion meshletIndicesRegion;
         };
 
-        Vector<PartRegions> partRegions;
+        ScopedVector<PartRegions> partRegions;
         partRegions.reserve(geometry.parts.size());
         for (const RawGeometryPart& part : geometry.parts)
         {
@@ -605,11 +623,11 @@ namespace rn
             });
         }
 
-        Vector<uint8_t> dataBuffer(dataBufferSize);
-        WriteStreamToDataBuffer(dataBuffer.data(), geometry.positions, positionRegion);
-        WriteStreamToDataBuffer(dataBuffer.data(), geometry.normals, normalsRegion);
-        WriteStreamToDataBuffer(dataBuffer.data(), geometry.texcoords, texcoordsRegion);
-        WriteStreamToDataBuffer(dataBuffer.data(), geometry.tangents, tangentsRegion);
+        ScopedVector<uint8_t> dataBuffer(dataBufferSize);
+        WriteStreamToDataBuffer(dataBuffer.data(), geometry.positions,  positionRegion);
+        WriteStreamToDataBuffer(dataBuffer.data(), geometry.normals,    normalsRegion);
+        WriteStreamToDataBuffer(dataBuffer.data(), geometry.texcoords,  texcoordsRegion);
+        WriteStreamToDataBuffer(dataBuffer.data(), geometry.tangents,   tangentsRegion);
 
         for (uint32_t partIdx = 0; const RawGeometryPart& part : geometry.parts)
         {
@@ -627,68 +645,85 @@ namespace rn
             WriteStreamToDataBuffer(dataBuffer.data(), part.meshletIndices, regions.meshletIndicesRegion);
         }
 
-        flatbuffers::FlatBufferBuilder fbb;
-
-        auto fbDataBuffer = fbb.CreateVector<uint8_t>(dataBuffer.data(), dataBuffer.size());
-        auto fbPositionStream = render::VertexStream(positionRegion, render::VertexStreamType::Position, render::VertexStreamFormat::Float, 3, sizeof(geometry.positions[0]));
+        schema::VertexStream positionStream = {
+            .region = positionRegion,
+            .type = schema::VertexStreamType::Position,
+            .format = data::VertexStreamFormat::Float,
+            .componentCount = 3,
+            .stride = sizeof(geometry.positions[0])
+        };
         
-        Vector<render::VertexStream> streams;
-        AppendStreamIfNotEmpty(normalsRegion, render::VertexStreamType::Normal, render::VertexStreamFormat::Float, 3, sizeof(geometry.normals[0]), streams);
-        AppendStreamIfNotEmpty(texcoordsRegion, render::VertexStreamType::UV, render::VertexStreamFormat::Float, 2, sizeof(geometry.texcoords[0]), streams);
-        AppendStreamIfNotEmpty(tangentsRegion, render::VertexStreamType::Tangent, render::VertexStreamFormat::Float, 4, sizeof(geometry.tangents[0]), streams);
+        ScopedVector<schema::VertexStream> streams;
+        streams.reserve(16);
 
-        auto fbVertexStreams = fbb.CreateVectorOfStructs(streams);
-        
-        Vector<flatbuffers::Offset<render::GeometryPart>> parts;
+        AppendStreamIfNotEmpty(normalsRegion, schema::VertexStreamType::Normal, VertexStreamFormat::Float, 3, sizeof(geometry.normals[0]), streams);
+        AppendStreamIfNotEmpty(texcoordsRegion, schema::VertexStreamType::UV, VertexStreamFormat::Float, 2, sizeof(geometry.texcoords[0]), streams);
+        AppendStreamIfNotEmpty(tangentsRegion, schema::VertexStreamType::Tangent, VertexStreamFormat::Float, 4, sizeof(geometry.tangents[0]), streams);
+
+        ScopedVector<schema::Meshlet> meshlets;
+        ScopedVector<schema::GeometryPart> parts;
+        parts.reserve(geometry.parts.size());
         for (uint32_t partIdx = 0; const RawGeometryPart& part : geometry.parts)
         {
-            Vector<render::Meshlet> meshlets;
             for (const meshopt_Meshlet& meshlet : part.meshlets)
             {
-                meshlets.push_back(render::Meshlet(
-                    meshlet.vertex_offset,
-                    meshlet.vertex_count,
-                    meshlet.triangle_offset,
-                    meshlet.triangle_count));
+                meshlets.push_back({
+                    .vertexOffset = meshlet.vertex_offset,
+                    .triangleOffset = meshlet.triangle_offset,
+                    .vertexCount = meshlet.vertex_count,
+                    .triangleCount = meshlet.triangle_count
+                });
             }
-
-            auto fbMeshlets = fbb.CreateVectorOfStructs(meshlets);
-            const PartRegions& regions = partRegions[partIdx++];
-            parts.push_back(render::CreateGeometryPart(fbb,
-                part.materialIdx,
-                part.baseVertex,
-                &regions.indicesRegion,
-                part.indices16.empty() ? 
-                    render::IndexElementFormat::Uint32 : 
-                    render::IndexElementFormat::Uint16,
-                fbMeshlets,
-                &regions.meshletVerticesRegion,
-                &regions.meshletIndicesRegion));
         }
-        
-        auto fbParts = fbb.CreateVector(parts);
 
-        schema::AABB fbAABB = schema::AABB(
-            Float3( geometry.aabb.GetMin()[0], 
-                    geometry.aabb.GetMin()[1],
-                    geometry.aabb.GetMin()[2]),
-            Float3( geometry.aabb.GetMax()[0], 
-                    geometry.aabb.GetMax()[1],
-                    geometry.aabb.GetMax()[2]));
+        size_t meshletOffset = 0;
+        for (uint32_t partIdx = 0; const RawGeometryPart& part : geometry.parts)
+        {
+            const PartRegions& regions = partRegions[partIdx++];
+            parts.push_back({
+                .materialIdx = part.materialIdx,
+                .baseVertex = part.baseVertex,
+                .indices = regions.indicesRegion,
+                .indexFormat = part.indices16.empty() ?
+                    rhi::IndexFormat::Uint32 :
+                    rhi::IndexFormat::Uint16,
+                .meshlets = { meshlets.data() + meshletOffset, part.meshlets.size() },
+                .meshletVertices = regions.meshletVerticesRegion,
+                .meshletIndices = regions.meshletIndicesRegion
+            });
 
-        auto root = render::CreateGeometry(fbb, 
-            &fbAABB,
-            fbParts,
-            &fbPositionStream,
-            fbVertexStreams,
-            fbDataBuffer);
+            meshletOffset += part.meshlets.size();
+        }
 
-        fbb.Finish(root, render::GeometryIdentifier());
+        schema::AABB aabb = {
+            .min = {
+                geometry.aabb.GetMin()[0], 
+                geometry.aabb.GetMin()[1],
+                geometry.aabb.GetMin()[2]
+            },
+
+            .max = {
+                geometry.aabb.GetMax()[0], 
+                geometry.aabb.GetMax()[1],
+                geometry.aabb.GetMax()[2]
+            },
+        };
+
+        schema::Geometry outGeometry = {
+            .aabb = aabb,
+            .parts = parts,
+            .positions = positionStream,
+            .vertexStreams = streams,
+            .data = dataBuffer
+        };
+
+        uint64_t serializedSize = schema::Geometry::SerializedSize(outGeometry);
+        Span<uint8_t> outData = { static_cast<uint8_t*>(ScopedAlloc(serializedSize, CACHE_LINE_TARGET_SIZE)), serializedSize };
+        rn::Serialize<schema::Geometry>(outData, outGeometry);
 
         std::string extension = meshName;
-        extension += ".";
-        extension += render::GeometryExtension();
-        return WriteAssetToDisk(file, extension, options, fbb.GetBufferSpan(), {}, outFiles) == 0;
+        extension += ".geometry";
+        return WriteAssetToDisk(file, extension, options, outData, {}, outFiles) == 0;
     }
 
     bool ProcessUsdGeomMesh(std::string_view file, const DataBuildOptions& options, const UsdGeometryBuildDesc& desc, Vector<std::string>& outFiles)

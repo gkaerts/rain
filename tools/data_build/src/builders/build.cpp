@@ -5,8 +5,8 @@
 #include "common/memory/memory.hpp"
 #include "common/memory/vector.hpp"
 
-#include "flatbuffers/flatbuffers.h"
-#include "asset/schema/asset_generated.h"
+#include "asset_gen.hpp"
+#include "luagen/schema.hpp"
 #include <filesystem>
 
 namespace rn
@@ -40,7 +40,7 @@ namespace rn
         return relBuildFileDirectory / otherFile;
     }
 
-    int WriteAssetToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<const uint8_t> assetData, Span<std::string_view> references, Vector<std::string>& outFiles)
+    int WriteAssetToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<uint8_t> assetData, Span<std::string_view> references, Vector<std::string>& outFiles)
     {
         std::filesystem::path rootDir = options.assetRootDirectory;
         rootDir = std::filesystem::absolute(rootDir);
@@ -92,22 +92,33 @@ namespace rn
 
             sanitizedRefs.push_back(refFilePath.string());
         }
-  
-        flatbuffers::FlatBufferBuilder fbb;
-        auto referenceVec = fbb.CreateVectorOfStrings(sanitizedRefs.begin(), sanitizedRefs.end());
-        auto dataVec = fbb.CreateVector(assetData.data(), assetData.size());
 
-        auto fbRoot = schema::CreateAsset(fbb, referenceVec, dataVec);
-        fbb.Finish(fbRoot, schema::AssetIdentifier());
+        MemoryScope SCOPE;
 
-        fwrite(fbb.GetBufferPointer(), 1, fbb.GetSize(), outFile);
+        using namespace asset;
+        schema::Asset outAsset = {
+            .identifier = extension,
+            .references = { ScopedNewArray<std::string_view>(SCOPE, sanitizedRefs.size()), sanitizedRefs.size() },
+            .assetData = assetData
+        };
+
+        for (int refIdx = 0; const std::string& sanitizedRef : sanitizedRefs)
+        {
+            outAsset.references[refIdx++] = sanitizedRef;
+        }
+
+        size_t serializedSize = schema::Asset::SerializedSize(outAsset);
+        Span<uint8_t> outData = { static_cast<uint8_t*>(ScopedAlloc(serializedSize, CACHE_LINE_TARGET_SIZE)), serializedSize };
+        rn::Serialize<schema::Asset>(outData, outAsset);
+
+        fwrite(outData.data(), 1, outData.size(), outFile);
         fclose(outFile);
 
         outFiles.push_back(outAssetFile.string());
         return 0;
     }
 
-    int WriteDataToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<const uint8_t> data, bool writeText, Vector<std::string>& outFiles)
+    int WriteDataToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<uint8_t> data, bool writeText, Vector<std::string>& outFiles)
     {
         std::filesystem::path rootDir = options.assetRootDirectory;
         rootDir = std::filesystem::absolute(rootDir);

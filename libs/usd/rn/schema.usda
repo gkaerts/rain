@@ -6,7 +6,8 @@
         # @<library name>/schema.usda@. In this example, we're referring
         # to schema types from 'usd'. If you were adding sub-classes of
         # UsdGeom schema types, you would use usdGeom/schema.usda instead.
-        @usd/schema.usda@
+        @usd/schema.usda@,
+        @usdShade/schema.usda@
     ]
 )
 
@@ -202,3 +203,66 @@ class MaterialShaderParamTexture "MaterialShaderParamTexture" (
     )
 }
 
+class "RainMaterialAPI" (
+    inherits = </APISchemaBase>
+    doc = """API for adding Rain-specific properties to materials"""
+    customData = {
+        token apiSchemaType = "singleApply"
+        token[] apiSchemaAutoApplyTo = ["UsdShadeMaterial"]
+        token[] apiSchemaCanOnlyApplyTo = ["UsdShadeMaterial"]
+    }
+) {
+    uniform asset rn:shader (
+        customData = { string apiName = "shader" }
+        doc = """Material shader asset for this material"""
+    )
+    rel rn:parameters (
+        customData = { string apiName = "parameters" }
+        doc = """List of parameters for this material"""
+    )
+}
+
+class MaterialParamFloatVec "MaterialParamFloatVec" (
+    inherits = </Typed>
+    doc = """A material parameter representing a floating point vector value"""
+) {
+    uniform uint dimension (
+        doc = """The dimension of the float vector"""
+    )
+    uniform float[] value (
+        doc = """The value of the parameter"""
+    )
+}
+
+class MaterialParamUintVec "MaterialParamUintVec" (
+    inherits = </Typed>
+    doc = """A material parameter representing a unsigned integer vector value"""
+) {
+    uniform uint dimension (
+        doc = """The dimension of the uint vector"""
+    )
+    uniform uint[] value (
+        doc = """The value of the parameter"""
+    )
+}
+
+class MaterialParamIntVec "MaterialParamIntVec" (
+    inherits = </Typed>
+    doc = """A material parameter representing an integer vector value"""
+) {
+    uniform uint dimension (
+        doc = """The dimension of the int vector"""
+    )
+    uniform int[] value (
+        doc = """The value of the parameter"""
+    )
+}
+
+class MaterialParamTexture "MaterialParamTexture" (
+    inherits = </Typed>
+    doc = """A material parameter representing an integer vector value"""
+) {
+    uniform asset texture (
+        doc = """The path to the texture asset"""
+    )
+}

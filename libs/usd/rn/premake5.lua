@@ -8,7 +8,6 @@ project "usd_rn_schema"
     filter "files:**.usda"
         buildmessage ""
         buildcommands {
-            "echo Path is at: $(PATH)",
             "usdGenSchema %{file.relpath} " .. GENERATED_FILE_PATH .. "/usd_plugins/rn"
         }
 

@@ -1,3 +1,5 @@
+PROJECT_ROOT = _MAIN_SCRIPT_DIR
+
 require("premake/modules")
 
 -- Options
@@ -30,7 +32,7 @@ workspace "rain"
     filter { "options:platform=win64" }
         system "windows"
         architecture "x86_64"
-        buildoptions {"/utf-8"}
+        defines {"FMT_UNICODE=0"}
 
     -- Workspace build configurations
     configurations { "Debug", "Release" }
@@ -38,9 +40,10 @@ workspace "rain"
     filter "configurations:Debug"
         symbols "On"
         runtime "Debug"
-        defines { "DEBUG" }
+        defines { "DEBUG", "_DEBUG=1" }
         optimize "Off"
         inlining "Disabled"
+        staticruntime "Off"
 
     filter "configurations:Release"
         symbols "On"
@@ -48,12 +51,16 @@ workspace "rain"
         defines { "NDEBUG" }
         optimize "Speed"
         inlining "Auto"
+        staticruntime "Off"
 
     filter {}
 
     if _ACTION == "download_dependencies" then
         -- Download location
         location("downloads/")
+    elseif _ACTION == "codegen" then
+        -- Codegen location
+        location("build/codegen")
     else
         -- Build location
         location("build/" .. _OPTIONS["platform"])
@@ -67,7 +74,7 @@ workspace "rain"
     if BUILD_PROPERTIES.IncludeTestsInBuild then
         include "contrib/projects/googletest"
     end
-
+    
     -- Projects
     include "contrib/projects/spdlog"
     include "contrib/projects/enkiTS"

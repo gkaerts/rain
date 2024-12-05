@@ -8,8 +8,12 @@
 #include <pxr/usd/usd/primRange.h>
 #include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/mesh.h>
+
+#include <pxr/usd/usdShade/material.h>
+
 #include "rn/texture.h"
 #include "rn/materialShader.h"
+#include "rn/rainMaterialAPI.h"
 #pragma warning(pop)
 
 #include "usd.hpp"
@@ -18,9 +22,18 @@
 #include "geometry.hpp"
 #include "texture.hpp"
 #include "material_shader.hpp"
-
+#include "material.hpp"
 namespace rn
 {
+    std::filesystem::path MakeAssetReferencePath(std::string_view file, const pxr::SdfAssetPath& path, const std::filesystem::path& extension)
+    {
+        std::string assetPath = path.GetAssetPath();
+        std::filesystem::path outPath = MakeRelativeTo(file, assetPath);
+        outPath.replace_extension(extension);
+
+        return outPath;
+    }
+
     bool IsNonEmptyAssetPath(std::string_view file, const pxr::UsdAttribute& prop)
     {
         auto str = Value<pxr::SdfAssetPath>(prop);
@@ -144,6 +157,10 @@ namespace rn
             else if (prim.IsA<pxr::RnMaterialShader>())
             {
                 return ProcessUsdMaterialShader(file, options, prim, outFiles);
+            }
+            else if (prim.IsA<pxr::UsdShadeMaterial>() && prim.HasAPI<pxr::RnRainMaterialAPI>())
+            {
+                return ProcessUsdMaterial(file, options, prim, outFiles);
             }
         }
         return 0;

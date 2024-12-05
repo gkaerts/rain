@@ -1,5 +1,6 @@
 #include "data/texture.hpp"
-#include "data/schema/texture_generated.h"
+#include "texture_gen.hpp"
+#include "luagen/schema.hpp"
 
 #include "rhi/format.hpp"
 #include "rhi/device.hpp"
@@ -28,7 +29,7 @@ namespace rn::data
             basist::transcoder_texture_format::cTFRGBA32,               // LUT
             basist::transcoder_texture_format::cTFBC4_R,                // Heightmap
         };
-        RN_MATCH_ENUM_AND_ARRAY(TRANSCODER_FORMATS, schema::render::Usage);
+        RN_MATCH_ENUM_AND_ARRAY(TRANSCODER_FORMATS, schema::TextureUsage);
 
         constexpr const rhi::TextureFormat TEXTURE_FORMATS[] = 
         {
@@ -39,7 +40,7 @@ namespace rn::data
             rhi::TextureFormat::RGBA8Unorm, // LUT
             rhi::TextureFormat::BC4,        // Heightmap
         };
-        RN_MATCH_ENUM_AND_ARRAY(TEXTURE_FORMATS, schema::render::Usage);  
+        RN_MATCH_ENUM_AND_ARRAY(TEXTURE_FORMATS, schema::TextureUsage);  
     }
 
     TextureAllocator::TextureAllocator(rhi::Device* device)
@@ -93,11 +94,11 @@ namespace rn::data
 
     namespace
     {
-        TextureData TranscodeTexture2D(const char* name,
+        TextureData TranscodeTexture2D(std::string_view name,
             rhi::Device* device,
             rhi::CommandList* cl,
             TextureAllocator& allocator,
-            schema::render::Usage usage,
+            schema::TextureUsage usage,
             basist::basisu_transcoder& transcoder,
             Span<const uint8_t> basisData)
         {
@@ -208,14 +209,14 @@ namespace rn::data
 
     TextureData TextureBuilder::Build(const asset::AssetBuildDesc& desc)
     {
-        const schema::render::Texture* asset = schema::render::GetTexture(desc.data.data());
+        schema::Texture asset = rn::Deserialize<schema::Texture>(desc.data, [](size_t size) { return ScopedAlloc(size, CACHE_LINE_TARGET_SIZE); });
 
         TextureData outData = {};
 
-        RN_ASSERT(asset->data_format() == schema::render::TextureDataFormat::Basis);
-        if(asset->data_format() == schema::render::TextureDataFormat::Basis)
+        RN_ASSERT(asset.dataFormat == schema::TextureDataFormat::Basis);
+        if(asset.dataFormat == schema::TextureDataFormat::Basis)
         {
-            Span<const uint8_t> basisData = { asset->data()->data(), asset->data()->size() };
+            Span<const uint8_t> basisData = asset.data;
 
             basist::basisu_transcoder transcoder;
             basist::basisu_file_info fileInfo{};
@@ -230,7 +231,7 @@ namespace rn::data
                     _device,
                     GetCommandListForCurrentThread(),
                     _allocator,
-                    asset->usage(),
+                    asset.usage,
                     transcoder,
                     basisData);
                 break;

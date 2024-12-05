@@ -1,9 +1,10 @@
 #include "data/geometry.hpp"
 
-#include "data/schema/common_generated.h"
-#include "data/schema/geometry_generated.h"
+#include "common_gen.hpp"
+#include "geometry_gen.hpp"
 
 #include "rhi/device.hpp"
+#include "luagen/schema.hpp"
 
 namespace rn::data
 {
@@ -50,19 +51,9 @@ namespace rn::data
     {
         constexpr const size_t GEOMETRY_REGION_ALIGNMENT = 64;
 
-        rhi::IndexFormat ToIndexFormat(schema::render::IndexElementFormat indexFormat)
+        VertexStream MakeVertexStream(rhi::Device* device, rhi::Buffer dataBuffer, const schema::VertexStream& inStream)
         {
-            return rhi::IndexFormat(indexFormat);
-        }
-
-        VertexStreamFormat ToVertexStreamFormat(schema::render::VertexStreamFormat format)
-        {
-            return VertexStreamFormat(format);
-        }
-
-        VertexStream MakeVertexStream(rhi::Device* device, rhi::Buffer dataBuffer, const schema::render::VertexStream* inStream)
-        {
-            if (!inStream)
+            if (!inStream.componentCount)
             {
                 return {};
             }
@@ -70,19 +61,19 @@ namespace rn::data
             return {
                 .view = device->CreateBufferView({
                         .buffer = dataBuffer,
-                        .offsetInBytes = inStream->region().offset_in_bytes(),
-                        .sizeInBytes = inStream->region().size_in_bytes()
+                        .offsetInBytes = inStream.region.offsetInBytes,
+                        .sizeInBytes = inStream.region.sizeInBytes
                     }),
-                .format = ToVertexStreamFormat(inStream->format()),
-                .componentCount = inStream->component_count(),
-                .elementStride = inStream->stride(),
-                .offsetInDataBuffer = inStream->region().offset_in_bytes()
+                .format = inStream.format,
+                .componentCount = inStream.componentCount,
+                .elementStride = inStream.stride,
+                .offsetInDataBuffer = inStream.region.offsetInBytes
             };
         }
 
-        uint32_t CalculateIndexCount(schema::render::IndexElementFormat indexFormat, size_t bufferSize)
+        uint32_t CalculateIndexCount(rhi::IndexFormat indexFormat, size_t bufferSize)
         {
-            constexpr const size_t INDEX_SIZES[CountOf<schema::render::IndexElementFormat>()] = {
+            constexpr const size_t INDEX_SIZES[CountOf<rhi::IndexFormat>()] = {
                 sizeof(uint16_t),
                 sizeof(uint32_t)
             };
@@ -95,7 +86,7 @@ namespace rn::data
             rhi::CommandList* uploadCL, 
             GeometryAllocator* geometryAllocator, 
             rhi::Buffer dataBuffer,
-            const char* identifier)
+            const std::string_view identifier)
         {
             MemoryScope SCOPE;
             ScopedVector<rhi::BLASTriangleGeometryDesc> blasGeometryDescs;
@@ -179,53 +170,52 @@ namespace rn::data
 
     GeometryData GeometryBuilder::Build(const asset::AssetBuildDesc& desc)
     {
-        const schema::render::Geometry* asset = schema::render::GetGeometry(desc.data.data());
+        schema::Geometry asset = rn::Deserialize<schema::Geometry>(desc.data, [](size_t size) { return ScopedAlloc(size, CACHE_LINE_TARGET_SIZE); });
 
-        rhi::GPUMemoryRegion dataRegion = _allocator.Allocate(asset->data()->size());
-        uint32_t dataBufferSize = uint32_t(asset->data()->size());
+        rhi::GPUMemoryRegion dataRegion = _allocator.Allocate(uint32_t(asset.data.size()));
+        uint32_t dataBufferSize = uint32_t(uint32_t(asset.data.size()));
         rhi::Buffer dataBuffer = _device->CreateBuffer({
             .flags = rhi::BufferCreationFlags::AllowShaderReadOnly | rhi::BufferCreationFlags::AllowShaderReadWrite,
             .size = dataBufferSize,
             .name = desc.identifier
         }, dataRegion);
 
-        const schema::render::VertexStream* positions = asset->positions();
-        RN_ASSERT(positions &&
-            positions->region().offset_in_bytes() % GEOMETRY_REGION_ALIGNMENT == 0 &&
-            positions->type() == schema::render::VertexStreamType::Position &&
-            positions->format() == schema::render::VertexStreamFormat::Float &&
-            positions->component_count() >= 3);
+        const schema::VertexStream& positions = asset.positions;
+        RN_ASSERT(
+            positions.region.offsetInBytes % GEOMETRY_REGION_ALIGNMENT == 0 &&
+            positions.type == schema::VertexStreamType::Position &&
+            positions.format == VertexStreamFormat::Float &&
+            positions.componentCount >= 3);
 
         GeometryData outData = {
             .dataGPURegion      = dataRegion,
             .dataBuffer         = dataBuffer,
-            .vertexCount        = asset->positions()->region().size_in_bytes() / asset->positions()->stride(),
-            .positions          = MakeVertexStream(_device, dataBuffer, asset->positions()),
+            .vertexCount        = asset.positions.region.sizeInBytes / asset.positions.stride,
+            .positions          = MakeVertexStream(_device, dataBuffer, asset.positions),
              .aabb = {
-                .min = { asset->aabb()->min().x(), asset->aabb()->min().y(), asset->aabb()->min().z() },
-                .max = { asset->aabb()->max().x(), asset->aabb()->max().y(), asset->aabb()->max().z() },
+                .min = { asset.aabb.min.x, asset.aabb.min.y, asset.aabb.min.z },
+                .max = { asset.aabb.max.x, asset.aabb.max.y, asset.aabb.max.z },
             }
         };
 
-        const auto* vertexStreams = asset->vertex_streams();
-        for (const schema::render::VertexStream* stream : *vertexStreams)
+        for (const schema::VertexStream& stream : asset.vertexStreams)
         {
             VertexStream* destStream = nullptr;
-            switch(stream->type())
+            switch(stream.type)
             {
-                case schema::render::VertexStreamType::Normal:
+                case schema::VertexStreamType::Normal:
                     RN_ASSERT(outData.normals.view == rhi::BufferView::Invalid);
                     destStream = &outData.normals;
                 break;
-                case schema::render::VertexStreamType::Tangent:
+                case schema::VertexStreamType::Tangent:
                     RN_ASSERT(outData.tangents.view == rhi::BufferView::Invalid);
                     destStream = &outData.tangents;
                 break;
-                case schema::render::VertexStreamType::UV:
+                case schema::VertexStreamType::UV:
                     RN_ASSERT(outData.uvs.view == rhi::BufferView::Invalid);
                     destStream = &outData.uvs;
                 break;
-                case schema::render::VertexStreamType::Color:
+                case schema::VertexStreamType::Color:
                     RN_ASSERT(outData.colors.view == rhi::BufferView::Invalid);
                     destStream = &outData.colors;
                 break;
@@ -237,38 +227,36 @@ namespace rn::data
             }
         }
 
-        const auto* parts = asset->parts();
-        Span<GeometryPart> outParts = { TrackedNewArray<GeometryPart>(MemoryCategory::Data, parts->size()), parts->size() };
+        Span<GeometryPart> outParts = { TrackedNewArray<GeometryPart>(MemoryCategory::Data, asset.parts.size()), asset.parts.size() };
 
         uint32_t partIdx = 0;
-        for (const schema::render::GeometryPart* part : *parts)
+        for (const schema::GeometryPart& part : asset.parts)
         {
-            const schema::render::BufferRegion* indices = part->indices();
-            RN_ASSERT(indices &&
-                indices->offset_in_bytes() % GEOMETRY_REGION_ALIGNMENT == 0);
+            RN_ASSERT(part.indices.sizeInBytes > 0 &&
+                part.indices.offsetInBytes % GEOMETRY_REGION_ALIGNMENT == 0);
 
             GeometryPart& outPart = outParts[partIdx++];
             outPart = 
             {
-                .materialIndex  = part->material_idx(),
-                .baseVertex     = part->base_vertex(),
+                .materialIndex  = part.materialIdx,
+                .baseVertex     = part.baseVertex,
                 .indices        = _device->CreateBufferView({
                                     .buffer = dataBuffer,
-                                    .offsetInBytes = indices->offset_in_bytes(),
-                                    .sizeInBytes = indices->size_in_bytes()
+                                    .offsetInBytes = part.indices.offsetInBytes,
+                                    .sizeInBytes = part.indices.sizeInBytes
                                 }),
 
-                .indexFormat    = ToIndexFormat(part->indices_format()),
-                .indexOffset    = indices->offset_in_bytes(),
-                .indexCount     = CalculateIndexCount(part->indices_format(), indices->size_in_bytes())
+                .indexFormat    = part.indexFormat,
+                .indexOffset    = part.indices.offsetInBytes,
+                .indexCount     = CalculateIndexCount(part.indexFormat, part.indices.sizeInBytes)
             };
         }
         outData.parts = outParts;
         
 
         rhi::CommandList* uploadCL = GetCommandListForCurrentThread();
-        rhi::TemporaryResource tempData = uploadCL->AllocateTemporaryResource(asset->data()->size());
-        std::memcpy(tempData.cpuPtr, asset->data()->data(), asset->data()->size());
+        rhi::TemporaryResource tempData = uploadCL->AllocateTemporaryResource(uint32_t(asset.data.size()));
+        std::memcpy(tempData.cpuPtr, asset.data.data(), asset.data.size());
 
         uploadCL->Barrier({
             .bufferBarriers = {{

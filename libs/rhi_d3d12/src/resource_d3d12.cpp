@@ -331,11 +331,11 @@ namespace rn::rhi
             return d3dFlags;
         }
 
-        void SetResourceName(ID3D12Resource* resource, const char* name)
+        void SetResourceName(ID3D12Resource* resource, std::string_view name)
         {
             wchar_t wBuffer[256]{};
             size_t numConverted = 0;
-            mbstowcs_s(&numConverted, wBuffer, name, RN_ARRAY_SIZE(wBuffer) - 1);
+            mbstowcs_s(&numConverted, wBuffer, name.data(), std::min(RN_ARRAY_SIZE(wBuffer) - 1, name.length()));
 
             resource->SetName(wBuffer);
         }
