@@ -32,7 +32,6 @@ OpenUSD is its own beast and will require a one-time command to be run to downlo
 Here's a list of external libraries used:
 * [**basis_universal**](https://github.com/BinomialLLC/basis_universal)
 * [**enkiTS**](https://github.com/dougbinks/enkiTS)
-* [**flatbuffers**](https://github.com/google/flatbuffers)
 * [**googletest**](https://github.com/google/googletest)
 * [**meshoptimizer**](https://github.com/zeux/meshoptimizer)
 * [**MikkTSpace**](https://github.com/mmikk/MikkTSpace)
