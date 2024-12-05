@@ -16,9 +16,6 @@
 [submodule "contrib/submodules/mio"]
 	path = contrib/submodules/mio
 	url = https://github.com/vimpunk/mio
-[submodule "contrib/submodules/flatbuffers"]
-	path = contrib/submodules/flatbuffers
-	url = https://github.com/google/flatbuffers
 [submodule "contrib/submodules/basis_universal"]
 	path = contrib/submodules/basis_universal
 	url = https://github.com/BinomialLLC/basis_universal

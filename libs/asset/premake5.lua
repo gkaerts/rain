@@ -44,7 +44,7 @@ project "rnAsset"
 
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
     
-    links { "rnCommon", "flatbuffers" }
+    links { "rnCommon" }
 
 if BUILD_PROPERTIES.IncludeTestsInBuild then
     include "test"
