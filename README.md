@@ -30,14 +30,14 @@ Some dependencies are set up as git submodules (see [contrib/submodules](https:/
 OpenUSD is its own beast and will require a one-time command to be run to download and build the library. This currently makes the first time setup take a long amount of time, and I'd like to provide the option in the future to disable the inclusion of OpenUSD in case no tinkering with the asset import pipeline is required.
 
 Here's a list of external libraries used:
-* [**basis_universal**](https://github.com/BinomialLLC/basis_universal)
-* [**enkiTS**](https://github.com/dougbinks/enkiTS)
-* [**googletest**](https://github.com/google/googletest)
-* [**meshoptimizer**](https://github.com/zeux/meshoptimizer)
-* [**MikkTSpace**](https://github.com/mmikk/MikkTSpace)
-* [**mio**](https://github.com/vimpunk/mio)
-* [**OpenUSD**](https://github.com/PixarAnimationStudios/OpenUSD)
-* [**spdlog**](https://github.com/gabime/spdlog)
-* [**unordered_dense**](https://github.com/martinus/unordered_dense)
-* [**hlslpp**](https://github.com/redorav/hlslpp)
-* [**SDL**](https://github.com/libsdl-org/SDL)
+* [**basis_universal**](https://github.com/BinomialLLC/basis_universal) - Texture asset compression and runtime transcoding
+* [**enkiTS**](https://github.com/dougbinks/enkiTS) - Task scheduling
+* [**googletest**](https://github.com/google/googletest) - Unit testing framework
+* [**meshoptimizer**](https://github.com/zeux/meshoptimizer) - Mesh asset optimization and meshlet generation
+* [**MikkTSpace**](https://github.com/mmikk/MikkTSpace) - Tangent vector generation for mesh assets
+* [**mio**](https://github.com/vimpunk/mio) - Cross-platform memory mapped IO (mostly for loading assets from disk)
+* [**OpenUSD**](https://github.com/PixarAnimationStudios/OpenUSD) - Scene and asset description + composition
+* [**spdlog**](https://github.com/gabime/spdlog) - Runtime logging
+* [**unordered_dense**](https://github.com/martinus/unordered_dense) - Fast hashmap/set implementation
+* [**hlslpp**](https://github.com/redorav/hlslpp) - HLSL-style math library
+* [**SDL**](https://github.com/libsdl-org/SDL) - Windowing and input management
