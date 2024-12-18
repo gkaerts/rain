@@ -9,9 +9,9 @@ TEST(CameraTests, PerspectiveCamera_WorldToViewTransforms)
 {
     render::PerspectiveCamera camera = 
     {
-        .position = float3(0.0f, 5.0f, 0.0f),
-        .lookVector = float3(0.0f, 0.0f, 1.0f),
-        .upVector = float3(0.0f, 1.0f, 0.0),
+        .position = { 0.0f, 5.0f, 0.0f },
+        .lookVector = { 0.0f, 0.0f, 1.0f },
+        .upVector = { 0.0f, 1.0f, 0.0 },
         .zNear = 0.1f,
         .zFar = 1000.0f,
         .verticalFoV = HALF_PI
@@ -37,9 +37,9 @@ TEST(CameraTests, PerspectiveCamera_ViewToProjectionTransforms)
 {
     render::PerspectiveCamera camera = 
     {
-        .position = float3(0.0f, 5.0f, 0.0f),
-        .lookVector = float3(0.0f, 0.0f, 1.0f),
-        .upVector = float3(0.0f, 1.0f, 0.0),
+        .position = { 0.0f, 5.0f, 0.0f },
+        .lookVector = { 0.0f, 0.0f, 1.0f },
+        .upVector = { 0.0f, 1.0f, 0.0 },
         .zNear = 0.1f,
         .zFar = 1000.0f,
         .verticalFoV = HALF_PI
@@ -60,9 +60,9 @@ TEST(CameraTests, PerspectiveCamera_WorldToProjectionTransforms)
 {
     render::PerspectiveCamera camera = 
     {
-        .position = float3(0.0f, 5.0f, 0.0f),
-        .lookVector = float3(0.0f, 0.0f, 1.0f),
-        .upVector = float3(0.0f, 1.0f, 0.0),
+        .position = { 0.0f, 5.0f, 0.0f },
+        .lookVector = { 0.0f, 0.0f, 1.0f },
+        .upVector = { 0.0f, 1.0f, 0.0 },
         .zNear = 0.1f,
         .zFar = 1000.0f,
         .verticalFoV = HALF_PI

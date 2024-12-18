@@ -6,14 +6,14 @@ project "SDL"
     externaldownloadtype "Zip"
 
     RN_SDL_INCLUDES = {
-        "%{wks.location}/../../downloads/SDL/SDL2-2.30.9/include"
+        PROJECT_ROOT .. "/downloads/SDL/SDL2-2.30.9/include"
     }
     
     local target_dir = path.translate("%{wks.location}/%{cfg.buildcfg}/", '\\')
 
     files {
-        "%{wks.location}/../../downloads/SDL/SDL2-2.30.9/lib/x64/**.dll",
-        "%{wks.location}/../../downloads/SDL/SDL2-2.30.9/lib/x64/**.lib"
+        PROJECT_ROOT .. "/downloads/SDL/SDL2-2.30.9/lib/x64/**.dll",
+        PROJECT_ROOT .. "/downloads/SDL/SDL2-2.30.9/lib/x64/**.lib"
     }
 
     filter 'files:**.dll or **.lib'

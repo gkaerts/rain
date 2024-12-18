@@ -6,12 +6,14 @@
 #include "rhi/command_list.hpp"
 #include "rg/resource.hpp"
 
-
 namespace rn::rg
 {
     constexpr const uint32_t MAX_TEMP_BUFFER_COUNT = 256;
     class RenderGraph;
     struct RenderGraphResources;
+
+    
+
     class RenderPassContext
     {
     public:
@@ -27,7 +29,7 @@ namespace rn::rg
         rhi::CommandList*       CommandList() const { return _cl; }
         const rhi::Viewport&    Viewport() const { return _viewport; }
 
-        rhi::Buffer             Resolve(rg::Buffer buffer) const;
+        BufferRegion            Resolve(rg::Buffer buffer) const;
         rhi::BufferView         ResolveView(rg::Buffer buffer) const;
         rhi::TypedBufferView    ResolveTypedView(rg::Buffer buffer) const;
         rhi::UniformBufferView  ResolveUniformView(rg::Buffer buffer) const;
@@ -47,13 +49,13 @@ namespace rn::rg
         template <typename T>
         rhi::BufferView         AllocateTemporaryBufferView(const T& data) 
         {
-            return AllocateTemporaryBufferView(Span<const uint8_t>(&data, sizeof(data)));
+            return AllocateTemporaryBufferView(Span<const uint8_t>(reinterpret_cast<const uint8_t*>(&data), sizeof(data)));
         }
 
         template <typename T>
         rhi::UniformBufferView  AllocateTemporaryUniformBufferView(const T& data) 
         {
-            return AllocateTemporaryUniformBufferView(Span<const uint8_t>(&data, sizeof(data)));
+            return AllocateTemporaryUniformBufferView(Span<const uint8_t>(reinterpret_cast<const uint8_t*>(&data), sizeof(data)));
         }
 
     private:

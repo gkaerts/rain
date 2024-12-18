@@ -15,7 +15,6 @@ project "rnRHI"
 
     RN_RHI_INCLUDES = {
         "%{wks.location}/../../libs/rhi/include",
-        "%{wks.location}/../../libs/engine_shaders/include",
     }
 
     includedirs(RN_COMMON_INCLUDES)

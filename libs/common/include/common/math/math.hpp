@@ -1,10 +1,11 @@
 #pragma once
 
 #include "hlsl++.h"
-using namespace hlslpp;
 
 namespace rn
 {
+    using namespace hlslpp;
+
     const float PI = 3.14159265f;
     const float TWO_PI = 6.28318530f;
     const float HALF_PI = 1.57079632f;

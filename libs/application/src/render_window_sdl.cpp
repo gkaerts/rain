@@ -7,6 +7,11 @@
 
 namespace rn::app
 {
+    namespace
+    {
+        constexpr const float DEFAULT_DPI = 96.0f;
+    }
+
     void RenderWindow::InitializeWindow(const char* title, uint32_t width, uint32_t height)
     {
         _sdlWindow = SDL_CreateWindow(
@@ -39,11 +44,18 @@ namespace rn::app
     uint2 RenderWindow::DrawableSize() const
     {
         int width = 0, height = 0;
-        SDL_GL_GetDrawableSize(_sdlWindow,
+        SDL_GetWindowSizeInPixels(_sdlWindow,
             &width,
             &height);
 
         return { uint32_t(width), uint32_t(height) };
+    }
+
+    float RenderWindow::DPIScale() const
+    {
+        float hdpi = 0.0f;
+        SDL_GetDisplayDPI(SDL_GetWindowDisplayIndex(_sdlWindow), nullptr, &hdpi, nullptr);
+        return hdpi / DEFAULT_DPI;
     }
 }
 

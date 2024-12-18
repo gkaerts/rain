@@ -76,6 +76,44 @@ local makestring = function(env)
     return ret
 end
 
+local validateValueAgainstSchema = function(schemaType, value, recursion)
+
+    if schemaType.layout == Schema.TypeLayout.Primitive then
+        assert(type(value) == "number", "Expected value type of 'number', but got '" .. type(value) .. "'")
+
+    elseif schemaType.layout == Schema.TypeLayout.String then
+        assert(type(value) == "string", "Expected value type of 'string', but got '" .. type(value) .. "'")
+
+    elseif schemaType.layout == Schema.TypeLayout.Enum then
+        assert(type(value) == "string", "Expected value type of 'string', but got '" .. type(value) .. "'")
+
+        local valueFound = false
+        for _, v in ipairs(schemaType.elements) do
+            if v.name == value then
+                break
+            end
+        end
+        assert(valueFound, "Value '" .. value .. "' is not a valid enum value for the provided type")
+
+    elseif schemaType.layout == Schema.TypeLayout.Struct then
+        assert(type(value) == "table", "Expected value type of 'table', but got '" .. type(value) .. "'")
+
+        for _, f in ipairs(schemaType.elements) do
+            local fieldValue = value[f.name]
+            assert(fieldValue, "Expected field with name '" .. f.name .. ", but none found")
+            recursion(f.type, fieldValue)
+        end
+
+    elseif schemaType.layout == Schema.TypeLayout.Span then
+        assert(type(value) == "table", "Expected value type of 'table', but got '" .. type(value) .. "'")
+
+        for _, v in ipairs(value) do
+            recursion(schemaType.spannedType, v)
+        end
+
+    end
+end
+
 Schema.makeEnv = function(oldEnv)
     local env = {
 
@@ -237,6 +275,7 @@ Schema.makeEnvAPI = function(env)
         local ret = {
             layout = Schema.TypeLayout.Struct,
             sizeInBytes = math.max(4, sizeInBytes),
+            elements = fields,
             namespace = _env._currentNamespace,
             external = true
         }
@@ -245,15 +284,43 @@ Schema.makeEnvAPI = function(env)
         return ret
     end
 
-    env.import =        function(str)               return _import(env, str) end
-    env.namespace =     function(str)               return _namespace(env, str) end
-    env.value =         function(name, val)         return _value(env, name, val) end
-    env.span =          function(spannedType)       return _span(env, spannedType) end
-    env.enum =          function(values)            return _enum(env, values) end
-    env.fwd_enum =      function()                  return _fwd_enum(env) end
-    env.field =         function(fieldType, name)   return _field(env, fieldType, name) end
-    env.struct =        function(fields)            return _struct(env, fields) end
-    env.fwd_struct =    function(fields)            return _fwd_struct(env, fields) end
+    local _decorate = function(_env, type, decorations)
+        assert(type, "Invalid type provided to decorate")
+        assert(decorations, "No decorations provided to decorate")
+        if not type.decorations then
+            type.decorations = {}
+        end
+
+        for _, d in pairs(decorations) do
+            table.insert(type.decorations, d)
+        end
+    end
+
+    local _decoration = function(_env, type, name, value)
+        assert(type, "Invalid type provided to decoration")
+        assert(string.len(name) > 0, "Invalid decoration name provided")
+        assert(value, "Invalid value provided to decoration")
+
+        validateValueAgainstSchema(type, value, validateValueAgainstSchema)
+        return {
+            type = type,
+            name = name,
+            value = value
+        }
+    end
+    
+
+    env.import =        function(str)                   return _import(env, str) end
+    env.namespace =     function(str)                   return _namespace(env, str) end
+    env.value =         function(name, val)             return _value(env, name, val) end
+    env.span =          function(spannedType)           return _span(env, spannedType) end
+    env.enum =          function(values)                return _enum(env, values) end
+    env.fwd_enum =      function()                      return _fwd_enum(env) end
+    env.field =         function(fieldType, name)       return _field(env, fieldType, name) end
+    env.struct =        function(fields)                return _struct(env, fields) end
+    env.fwd_struct =    function(fields)                return _fwd_struct(env, fields) end
+    env.decorate =      function(type, decorations)     return _decorate(env, type, decorations) end
+    env.decoration =    function(type, name, value)     return _decoration(env, type, name, value) end
 end
 
 return Schema

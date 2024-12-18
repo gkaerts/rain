@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/common.hpp"
+#include "common/memory/bump_allocator.hpp"
 #include "rg/resource.hpp"
 
 namespace rn::rhi
@@ -61,17 +62,21 @@ namespace rn::rg
         RenderGraph(rhi::Device* device);
         ~RenderGraph();
 
-        rg::Texture2D AllocateTexture2D(const rg::Texture2DDesc& desc);
-        rg::Texture3D AllocateTexture3D(const rg::Texture3DDesc& desc);
-        rg::Buffer AllocateBuffer(const rg::BufferDesc& desc);
+        rg::Texture2D           AllocateTexture2D(const rg::Texture2DDesc& desc);
+        rg::Texture3D           AllocateTexture3D(const rg::Texture3DDesc& desc);
+        rg::Buffer              AllocateBuffer(const rg::BufferDesc& desc);
+        Span<uint8_t>           AllocateScratchSpace(size_t size);
 
-        rg::Texture2D RegisterTexture2D(const Texture2DRegistrationDesc& desc);
-        rg::Texture3D RegisterTexture3D(const Texture3DRegistrationDesc& desc);
-        rg::Buffer RegisterBuffer(const BufferRegistrationDesc& desc);
+        template <class T> T*   AllocateScratchPOD() { return _bumpAlloc.AllocatePOD<T>(); }
+        template <class T> T*   AllocateScratchPODArray(size_t size) { return _bumpAlloc.AllocatePODArray<T>(size); }          
 
-        void PushViewport(const rhi::Viewport& viewport);
-        void PopViewport();
-        const rhi::Viewport& CurrentViewport() const;
+        rg::Texture2D           RegisterTexture2D(const Texture2DRegistrationDesc& desc);
+        rg::Texture3D           RegisterTexture3D(const Texture3DRegistrationDesc& desc);
+        rg::Buffer              RegisterBuffer(const BufferRegistrationDesc& desc);
+
+        void                    PushViewport(const rhi::Viewport& viewport);
+        void                    PopViewport();
+        const rhi::Viewport&    CurrentViewport() const;
 
         void Build();
         void Reset(const rhi::Viewport& viewport);
@@ -100,5 +105,7 @@ namespace rn::rg
         RenderGraphImpl* _impl = nullptr;
         rhi::Device* _device = nullptr;
         bool _isClosed = true;
+
+        BumpAllocator _bumpAlloc;
     };
 }

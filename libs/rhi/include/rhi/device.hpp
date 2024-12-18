@@ -56,6 +56,7 @@ namespace rn::rhi
 
         virtual DeviceCaps              Capabilities() const = 0;
         virtual void                    EndFrame() = 0;
+        virtual void                    DrainGPU() = 0;
 
         virtual SwapChain*              CreateSwapChain(
                                             void* windowHandle, 

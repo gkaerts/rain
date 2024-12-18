@@ -1,0 +1,13 @@
+[build]
+type = "shader"
+
+[shader]
+source = "merge_draw_args.hlsl"
+include_dirs = [ 
+    "../../libs/rhi/include",
+    "../../libs/render/include",
+    "../../libs/render/shaders",
+]
+
+[compute_program]
+compute = "main"

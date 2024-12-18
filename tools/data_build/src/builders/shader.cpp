@@ -301,7 +301,8 @@ namespace rn
             wArgs.push_back(dir.c_str());
         }
 
-        std::filesystem::path sourceShaderPath = MakeRelativeTo(file, sourceFile);
+        
+        std::filesystem::path sourceShaderPath = std::filesystem::absolute(MakeRelativeTo(file, sourceFile));
 
         ComPtr<IDxcUtils> dxcUtils;
         DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(dxcUtils.GetAddressOf()));

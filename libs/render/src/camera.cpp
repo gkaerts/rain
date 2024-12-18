@@ -8,11 +8,15 @@ namespace rn::render
     // All transform are left-handed!
     float4x4 WorldToView(const PerspectiveCamera& camera)
     {
-        float3 r2 = normalize(camera.lookVector);
-        float3 r0 = normalize(cross(camera.upVector, r2));
+        float3 lookVector = { camera.lookVector.x, camera.lookVector.y, camera.lookVector.z };
+        float3 upVector = { camera.upVector.x, camera.upVector.y, camera.upVector.z };
+        float3 position = { camera.position.x, camera.position.y, camera.position.z };
+
+        float3 r2 = normalize(lookVector);
+        float3 r0 = normalize(cross(upVector, r2));
         float3 r1 = cross(r2, r0);
 
-        float3 negPos = -camera.position;
+        float3 negPos = -position;
         float1 d0 = dot(r0, negPos);
         float1 d1 = dot(r1, negPos);
         float1 d2 = dot(r2, negPos);

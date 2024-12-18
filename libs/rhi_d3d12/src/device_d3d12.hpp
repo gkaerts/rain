@@ -89,6 +89,7 @@ namespace rn::rhi
 
         DeviceCaps  Capabilities() const override { return _caps; }
         void        EndFrame();
+        void        DrainGPU() override;
 
         SwapChain*  CreateSwapChain(
                         void* windowHandle, 
@@ -191,7 +192,6 @@ namespace rn::rhi
         ID3D12Device10* D3DDevice() const { return _d3dDevice; }
 
         void QueueFrameFinalizerAction(FnOnFinalize fn, void* data);
-        void DrainGPU();
 
     private:
 

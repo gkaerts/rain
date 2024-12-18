@@ -72,7 +72,7 @@ namespace rn::rhi
             Page& currentPage = _pages[_currentPageIdx];
             resource = {
                 .buffer = currentPage.buffer,
-                .cpuPtr = static_cast<char*>(currentPage.mappedPtr) + _offsetInCurrentPage,
+                .cpuPtr = currentPage.mappedPtr ? static_cast<char*>(currentPage.mappedPtr) + _offsetInCurrentPage : nullptr,
                 .offsetInBytes = _offsetInCurrentPage,
                 .sizeInBytes = size
             };
@@ -118,7 +118,7 @@ namespace rn::rhi
         {
             .alloc = alloc,
             .buffer = b,
-            .mappedPtr = _mapFn(_parentDevice, b, 0, size),
+            .mappedPtr = _mapFn ? _mapFn(_parentDevice, b, 0, size) : nullptr,
             .size = size
         };
 
@@ -127,7 +127,10 @@ namespace rn::rhi
 
     void TemporaryResourceAllocator::DestroyPage(Page& page)
     {
-        _unmapFn(_parentDevice, page.buffer, 0, page.size);
+        if (_unmapFn)
+        {
+            _unmapFn(_parentDevice, page.buffer, 0, page.size);
+        }
         _parentDevice->Destroy(page.buffer);
         _parentDevice->GPUFree(page.alloc);
     }

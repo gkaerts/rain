@@ -70,6 +70,8 @@ function cpp:beginHeader()
     end
 
     w:lineBreak()
+    w:writeLn("using namespace std::literals;")
+    w:lineBreak()
 end
 
 function cpp:endHeader()
@@ -175,6 +177,55 @@ function cpp:resolveTypeName(typeToResolve)
     return name
 end
 
+function cpp:resolveTypeValue(typeToResolve, typeValue)
+    local valueStr = ""
+    if typeToResolve.layout == Schema.TypeLayout.Primitive then
+        if typeToResolve.primitive == Schema.PrimitiveType.Float then
+            valueStr = string.format("%ff", typeValue)
+
+        elseif typeToResolve.primitive == Schema.PrimitiveType.Double then
+            valueStr = string.format("%.2f", typeValue)
+
+        else
+            valueStr = string.format("%d", typeValue)
+
+        end
+
+    elseif typeToResolve.layout == Schema.TypeLayout.String then
+        valueStr = string.format("\"%s\"sv", typeValue)
+
+    elseif typeToResolve.layout == Schema.TypeLayout.Enum then
+        local enumName = self:resolveTypeName(typeToResolve)
+        valueStr = string.format("%s::%s", enumName, typeValue)
+
+
+    elseif typeToResolve.layout == Schema.TypeLayout.Struct then
+        valueStr = "{";
+        for i, f in ipairs(typeToResolve.elements) do
+            local innerValue = self:resolveTypeValue(f.type, typeValue[f.name])
+            valueStr = string.format("%s .%s = %s", valueStr, f.name, innerValue)
+
+            if i ~= #typeToResolve.elements then
+                valueStr = valueStr .. ","
+            end
+        end
+        valueStr = valueStr .. " }"
+
+    elseif typeToResolve.layout == Schema.TypeLayout.Span then
+        valueStr = "{";
+        for i, v in ipairs(typeValue) do
+            local innerValue = self:resolveTypeValue(typeToResolve.spannedType, v)
+            valueStr = string.format("%s %s", valueStr, innerValue)
+            if i ~= #typeValue then
+                valueStr = valueStr .. ","
+            end
+        end
+        valueStr = valueStr .. " }"
+    end
+
+    return valueStr
+end
+
 function cpp:writeStruct(name, type)
     local w = self.writer
 
@@ -182,15 +233,40 @@ function cpp:writeStruct(name, type)
         w:writeLn("struct %s;", name)
     else
         self:openScope("struct %s", name)
+
+        -- Fields
         for _, v in ipairs(type.elements) do
 
             local fieldTypeName = self:resolveTypeName(v.type)
             w:writeLn("%s %s;", fieldTypeName, v.name)
         end
         w:lineBreak()
+
+        -- Serialization
         w:writeLn("static %s Deserialize(const %s<const uint8_t>& data, uint64_t& offset, void*(*fnAlloc)(size_t));", name, cpp.SpanName)
         w:writeLn("static uint64_t SerializedSize(const %s& data);", name)
         w:writeLn("static uint64_t Serialize(const %s& data, uint64_t& offset, %s<uint8_t> out);", name, cpp.SpanName)
+        
+        -- Decoration
+        if type.decorations then
+            w:lineBreak()
+            self:openScope("struct Decorations")
+            for _, d in ipairs(type.decorations) do
+                local decorationTypeName = ""
+                local decorationValue = self:resolveTypeValue(d.type, d.value)
+                if d.type.layout == Schema.TypeLayout.Span then
+                    -- Treat spans decorations as arrays
+                    decorationTypeName = self:resolveTypeName(d.type.spannedType)
+                    w:writeLn("static constexpr const %s %s[] = %s;", decorationTypeName, d.name, decorationValue)
+                else
+                    decorationTypeName = self:resolveTypeName(d.type)
+                    w:writeLn("static constexpr const %s %s = %s;", decorationTypeName, d.name, decorationValue)
+                end
+                
+                
+            end
+            self:closeScope(";")
+        end
         self:closeScope(";")
         w:lineBreak()
     end
@@ -267,21 +343,9 @@ function cpp:writeStructSerializeDefinition(name, type)
 
     self:openScope("uint64_t %s::Serialize(const %s& data, uint64_t& offset, %s<uint8_t> out)", name, name, cpp.SpanName)
 
-    -- Preamble 
-    -- local offsetInData = 0
-    -- self:openScope("enum")
-    -- for _, v in ipairs(type.elements) do
-    --     w:writeLn("OFFSET_%s = %d,", v.name, offsetInData)
-    --     offsetInData = offsetInData + v.type.sizeInBytes
-    -- end
-    -- w:writeLn("OFFSET_TAIL = %d", offsetInData)
-    -- self:closeScope(";")
-
     -- Determine write size
     w:writeLn("uint64_t EXPECTED_SIZE = %s::SerializedSize(data);", name)
     w:writeLn("%s(out.size_bytes() >= EXPECTED_SIZE);", cpp.AssertName, name)
-    w:lineBreak()
-    --w:writeLn("uint64_t tail = OFFSET_TAIL;")
     w:lineBreak()
 
     w:writeLn("size_t size = 0;")
@@ -297,18 +361,6 @@ function cpp:writeStructDeserializeDefinition(name, type)
     local w = self.writer
 
     self:openScope("%s %s::Deserialize(const %s<const uint8_t>& data, uint64_t& offset, void*(*fnAlloc)(size_t))", name, name, cpp.SpanName)
-
-    local offsetInData = 0
-
-    -- Preamble 
-    -- self:openScope("enum")
-    -- for _, v in ipairs(type.elements) do
-    --     w:writeLn("OFFSET_%s = %d,", v.name, offsetInData)
-        
-    --     offsetInData = offsetInData + v.type.sizeInBytes
-    -- end
-    -- self:closeScope(";")
-    --w:lineBreak()
 
     self:openScope("return", name)
     for _, v in ipairs(type.elements) do

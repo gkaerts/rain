@@ -31,9 +31,9 @@ namespace rn::rg
         }
     }
 
-    rhi::Buffer RenderPassContext::Resolve(rg::Buffer buffer) const
+    BufferRegion RenderPassContext::Resolve(rg::Buffer buffer) const
     {
-        rhi::Buffer outHandle = rhi::Buffer::Invalid;
+        BufferRegion outRegion = {};
 
         const BufferRunData& runData = _resources->buffers->GetHot(buffer);
 
@@ -42,10 +42,10 @@ namespace rn::rg
 
         if (passIsAllowedToAccessHandle)
         {
-            outHandle = runData.buffer;
+            outRegion = runData.buffer;
         }
 
-        return outHandle;
+        return outRegion;
     }
 
     rhi::BufferView RenderPassContext::ResolveView(rg::Buffer buffer) const

@@ -13,6 +13,7 @@ namespace rn::app
     RN_DEFINE_MEMORY_CATEGORY(App);
 
     Application::Application(const ApplicationConfig& config)
+        : _eventListenerHook(config.eventListenerHook)
     {
         InitializePlatform();
         InitializeScopedAllocationForThread(config.threadScopeBackingSize);

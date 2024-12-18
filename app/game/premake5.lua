@@ -16,6 +16,10 @@ project "game"
     includedirs(RN_RENDER_GRAPH_INCLUDES)
     includedirs(RN_APPLICATION_INCLUDES)
     includedirs(RN_ASSET_INCLUDES)
+    includedirs(RN_DATA_INCLUDES)
+    includedirs(RN_SCENE_INCLUDES)
+    includedirs(RN_RENDER_INCLUDES)
+    includedirs(RN_IMGUI_INCLUDES)
 
     libdirs {
         "%{wks.location}/%{cfg.buildcfg}"
@@ -23,4 +27,4 @@ project "game"
 
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
 
-    links { "rnCommon", "rnRHI", "rnRHID3D12", "rnApplication", "rnRenderGraph", "rnAsset", "dxgi", "WinPixEventRuntime" }
+    links { "rnCommon", "rnRHI", "rnRHID3D12", "rnApplication", "rnRenderGraph", "rnAsset", "rnData", "rnRender", "imgui", "dxgi", "WinPixEventRuntime" }

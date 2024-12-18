@@ -1,27 +1,49 @@
 #usda 1.0
+(
+    defaultPrim = "MaterialShader"
+)
 
-def MaterialShader "MaterialShader"
+def MaterialShader "MaterialShader" (
+    assetInfo = {
+        asset identifier = @material_shader.usda@
+        string name = "MaterialShader"
+    }
+    kind = "component"
+)
 {
     uniform asset source = @material_shader.hlsl@
 
     uniform string[] defines = []
     uniform string[] includeDirs = [
-        "../../../../../libs/engine_shaders/include"
+        "../../../../../libs/rhi/include",
+        "../../../../../libs/render/include",
+        "../../../../../libs/render/shaders"
     ]
 
     rel renderPasses = [
-        </MaterialShader/ForwardPass>
+        </MaterialShader/Passes/ForwardPass>
     ]
 
     rel paramGroups = [
         </MaterialShader/DefaultParameters>
     ]
 
-    def VertexRasterPass "ForwardPass"
+    def Scope "Passes"
     {
-        uniform token engineRenderPass = "Forward"
-        uniform token vertexShader = "vs_main"
-        uniform token pixelShader = "ps_main"
+
+        def VertexRasterPass "ForwardPass"
+        {
+            uniform token engineRenderPass = "Forward"
+            uniform token vertexShader = "vs_main"
+            uniform token pixelShader = "ps_main"
+        }
+    }
+
+    def Scope "Textures"
+    {
+        def "Color" (
+            references = @../textures/texture.usda@
+        ) {}
     }
 
     def MaterialShaderParamGroup "DefaultParameters"
@@ -35,7 +57,7 @@ def MaterialShader "MaterialShader"
         {
             uniform token dimension = "2D"
             uniform token hlslParam = "colorTexture"
-            uniform asset defaultValue = @../textures/texture.usda@
+            rel defaultValue = </MaterialShader/Textures/Color>
         }
 
         def MaterialShaderParamFloatVec "Color"

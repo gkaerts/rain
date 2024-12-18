@@ -1,0 +1,17 @@
+[build]
+type = "shader"
+
+[shader]
+source = "visibility.hlsl"
+include_dirs = [ 
+    "../../libs/rhi/include",
+    "../../libs/render/include",
+    "../../libs/render/shaders",
+]
+defines = [
+    "VISIBILITY_SKIP_FRUSTUM_TEST=1",
+    "VISIBILITY_SKIP_HIZ_TEST=1"
+]
+
+[compute_program]
+compute = "main"

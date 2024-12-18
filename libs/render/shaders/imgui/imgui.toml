@@ -1,0 +1,14 @@
+[build]
+type = "shader"
+
+[shader]
+source = "imgui.hlsl"
+include_dirs = [ 
+    "../../libs/rhi/include",
+    "../../libs/render/include",
+    "../../libs/render/shaders",
+]
+
+[vertex_raster_program]
+vertex = "vs_main"
+pixel = "ps_main"

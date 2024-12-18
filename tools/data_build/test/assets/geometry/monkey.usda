@@ -3,9 +3,16 @@
     doc = "Blender v3.0.0"
     metersPerUnit = 1
     upAxis = "Z"
+    defaultPrim = "Suzanna"
 )
 
-def Xform "Suzanne"
+def Xform "Suzanne"(
+    assetInfo = {
+        asset identifier = @monkey.usda@
+        string name = "Monkey"
+    }
+    kind = "component"
+)
 {
     matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
     uniform token[] xformOpOrder = ["xformOp:transform"]

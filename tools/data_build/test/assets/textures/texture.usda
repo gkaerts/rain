@@ -1,6 +1,15 @@
 #usda 1.0
+(
+    defaultPrim = "Texture"
+)
 
-def Texture "Texture"
+def Texture "Texture" (
+    assetInfo = {
+        asset identifier = @texture.usda@
+        string name = "Texture"
+    }
+    kind = "component"
+)
 {
     uniform asset file = @texture.png@
     uniform token usage = "Diffuse"

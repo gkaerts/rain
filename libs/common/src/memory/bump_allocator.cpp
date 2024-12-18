@@ -45,7 +45,7 @@ namespace rn
         }
 
         _physicalCurrent = physicalCurrent + size;
-        return _physicalCurrent;
+        return physicalCurrent;
     }
 
     void BumpAllocator::Purge()

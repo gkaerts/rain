@@ -1,0 +1,16 @@
+[build]
+type = "shader"
+
+[shader]
+source = "visibility.hlsl"
+include_dirs = [ 
+    "../../libs/rhi/include",
+    "../../libs/render/include",
+    "../../libs/render/shaders",
+]
+defines = [
+    "VISIBILITY_STORE_CULLED_INSTANCES=1"
+]
+
+[compute_program]
+compute = "main"

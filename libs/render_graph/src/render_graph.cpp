@@ -14,6 +14,7 @@
 #include "rhi/device.hpp"
 #include "rhi/command_list.hpp"
 #include "rhi/transient_resource.hpp"
+#include "rhi/temporary_resource.hpp"
 
 #include "TaskScheduler.h"
 
@@ -62,6 +63,12 @@ namespace rn::rg
     {
         RenderGraphImpl(rhi::Device* device)
          : resourceAllocator(MemoryCategory::RenderGraph, device, 4096)
+         , bufferAllocator(device, 1, rhi::GPUAllocationFlags::DeviceOnly, 
+            rhi::BufferCreationFlags::AllowShaderReadOnly |
+            rhi::BufferCreationFlags::AllowShaderReadWrite |
+            rhi::BufferCreationFlags::AllowUniformBuffer,
+            nullptr,
+            nullptr)
         {}
 
         Texture2DPool texture2Ds = Texture2DPool(MemoryCategory::RenderGraph, 256);
@@ -81,11 +88,13 @@ namespace rn::rg
 
         BumpAllocator scratchAllocator = BumpAllocator(MemoryCategory::RenderGraph, 16 * MEGA);
         rhi::TransientResourceAllocator resourceAllocator;
+        rhi::TemporaryResourceAllocator bufferAllocator;
     };
 
 
     RenderGraph::RenderGraph(rhi::Device* device)
         : _device(device)
+        , _bumpAlloc(MemoryCategory::RenderGraph, 16 * MEGA)
     {
         _impl = TrackedNew<RenderGraphImpl>(MemoryCategory::RenderGraph, device);
     }
@@ -139,6 +148,11 @@ namespace rn::rg
         _impl->bufferHandles.push_back(handle);
 
         return handle;
+    }
+
+    Span<uint8_t> RenderGraph::AllocateScratchSpace(size_t size)
+    {
+        return { static_cast<uint8_t*>(_bumpAlloc.Allocate(size, 16)), size };
     }
 
     rg::Texture2D RenderGraph::RegisterTexture2D(const Texture2DRegistrationDesc& desc)
@@ -563,7 +577,7 @@ namespace rn::rg
             buildData.gpuRegion = region;
         }
 
-        void BuildBuffer(rhi::Device* device, rhi::TransientResourceAllocator& resourceAllocator, BufferBuildData& buildData, BufferRunData& runData)
+        void BuildBuffer(rhi::Device* device, rhi::TemporaryResourceAllocator& resourceAllocator, BufferBuildData& buildData, BufferRunData& runData)
         {
             if (buildData.ownership == ResourceOwnership::External)
             {
@@ -571,36 +585,19 @@ namespace rn::rg
             }
 
             bool resourceIsPinned = TestFlag(buildData.resourceFlags, ResourceFlags::Pinned);
-            RN_ASSERT(runData.buffer == rhi::Buffer::Invalid || resourceIsPinned); 
+            RN_ASSERT(runData.buffer.buffer == rhi::Buffer::Invalid || resourceIsPinned); 
 
-            if (resourceIsPinned && runData.buffer != rhi::Buffer::Invalid)
+            if (resourceIsPinned && runData.buffer.buffer != rhi::Buffer::Invalid)
             {
                 return;
             }
 
-            rhi::BufferDesc desc = {
-                .flags = buildData.creationFlags,
-                .size = buildData.desc.sizeInBytes,
-                .name = buildData.desc.name
+            rhi::TemporaryResource tmpBuffer = resourceAllocator.AllocateTemporaryResource(buildData.desc.sizeInBytes, 256);
+            runData.buffer = {
+                .buffer = tmpBuffer.buffer,
+                .offset = tmpBuffer.offsetInBytes,
+                .size = buildData.desc.sizeInBytes
             };
-
-            rhi::GPUMemoryRegion region = {}; 
-            if (!resourceIsPinned)
-            {
-                region = resourceAllocator.AllocateMemoryRegion(desc.size);
-            }
-            else
-            {
-                runData.pinnedAllocation = device->GPUAlloc(MemoryCategory::RenderGraph, desc.size, rhi::GPUAllocationFlags::DeviceOnly);
-                region = { 
-                    .allocation = runData.pinnedAllocation,
-                    .offsetInAllocation = 0,
-                    .regionSize = desc.size
-                };
-            }
-
-            runData.buffer = device->CreateBuffer(desc, region);
-            buildData.gpuRegion = region;
         }
 
         void RenderTargetSyncProperties(
@@ -1064,7 +1061,7 @@ namespace rn::rg
                     BufferRunData& runData = impl->buffers.GetHotMutable(usage.buffer);
                     if (buildData.firstUsedPass == passIdx)
                     {
-                        BuildBuffer(device, impl->resourceAllocator, buildData, runData);
+                        BuildBuffer(device, impl->bufferAllocator, buildData, runData);
                     }
 
                     bool requiresReadWriteBarrier = false;
@@ -1077,8 +1074,8 @@ namespace rn::rg
                                 if (runData.typedView == rhi::TypedBufferView::Invalid)
                                 {
                                     runData.typedView = device->CreateTypedBufferView({
-                                        .buffer = runData.buffer,
-                                        .offsetInBytes = 0,
+                                        .buffer = runData.buffer.buffer,
+                                        .offsetInBytes = runData.buffer.offset,
                                         .elementSizeInBytes = usage.structureSizeInBytes,
                                         .elementCount = buildData.desc.sizeInBytes / usage.structureSizeInBytes,
                                     });
@@ -1090,8 +1087,8 @@ namespace rn::rg
                                 if (runData.view == rhi::BufferView::Invalid)
                                 {
                                     runData.view = device->CreateBufferView({
-                                        .buffer = runData.buffer,
-                                        .offsetInBytes = 0,
+                                        .buffer = runData.buffer.buffer,
+                                        .offsetInBytes = runData.buffer.offset,
                                         .sizeInBytes = buildData.desc.sizeInBytes
                                     });
                                 }
@@ -1104,8 +1101,8 @@ namespace rn::rg
                             if (runData.rwView == rhi::RWBufferView::Invalid)
                             {
                                 runData.rwView = device->CreateRWBufferView({
-                                    .buffer = runData.buffer,
-                                    .offsetInBytes = 0,
+                                    .buffer = runData.buffer.buffer,
+                                    .offsetInBytes = runData.buffer.offset,
                                     .sizeInBytes = buildData.desc.sizeInBytes
                                 });
                             }
@@ -1123,8 +1120,8 @@ namespace rn::rg
                             if (runData.uniformView == rhi::UniformBufferView::Invalid)
                             {
                                 runData.uniformView = device->CreateUniformBufferView({
-                                    .buffer = runData.buffer,
-                                    .offsetInBytes = 0,
+                                    .buffer = runData.buffer.buffer,
+                                    .offsetInBytes = runData.buffer.offset,
                                     .sizeInBytes = buildData.desc.sizeInBytes
                                 });
                             }
@@ -1238,17 +1235,16 @@ namespace rn::rg
                     const BufferRunData& runData = impl->buffers.GetHotMutable(buffer);
                     FreeMemoryRegionIfNeeded(buildData);
 
-                    if (buildData.prevSyncStage != buildData.currSyncStage ||
-                        buildData.prevAccess != buildData.currAccess ||
-                        buildData.requiresReadWriteBarrier)
+                    // Buffers are simultaneous access. Only barrier on write hazard
+                    if (buildData.requiresReadWriteBarrier)
                     {
-                        bufferBarriers[tex3DBarrierCount++] = {
+                        bufferBarriers[bufferBarrierCount++] = {
                             .fromStage = buildData.prevSyncStage,
                             .toStage = buildData.currSyncStage,
                             .fromAccess = buildData.prevAccess,
                             .toAccess = buildData.currAccess,
-                            .handle = runData.buffer,
-                            .offset = 0,
+                            .handle = runData.buffer.buffer,
+                            .offset = runData.buffer.offset,
                             .size = buildData.desc.sizeInBytes
                         };
                     }
@@ -1358,11 +1354,10 @@ namespace rn::rg
                 return;
             }
 
-            if (runData.buffer != rhi::Buffer::Invalid &&
+            if (runData.buffer.buffer != rhi::Buffer::Invalid &&
                 runData.pinnedAllocation == rhi::GPUAllocation::Invalid)
             {
-                device->Destroy(runData.buffer);
-                runData.buffer = rhi::Buffer::Invalid;
+                runData.buffer = {};
             }
 
             if (runData.view != rhi::BufferView::Invalid)
@@ -1472,6 +1467,7 @@ namespace rn::rg
         _impl->viewportIdx = 0;
         _impl->renderPassCount = 0;
         _impl->scratchAllocator.Reset();
+        _impl->bufferAllocator.Flush(0);
         _isClosed = false;
     }
 

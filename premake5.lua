@@ -32,7 +32,7 @@ workspace "rain"
     filter { "options:platform=win64" }
         system "windows"
         architecture "x86_64"
-        defines {"FMT_UNICODE=0"}
+        defines {"FMT_UNICODE=0", "IMGUI_USE_WCHAR32"}
 
     -- Workspace build configurations
     configurations { "Debug", "Release" }

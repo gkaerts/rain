@@ -198,8 +198,9 @@ class MaterialShaderParamTexture "MaterialShaderParamTexture" (
         allowedTokens = ["2D", "3D"]
         doc = """The dimension of texture parameter"""
     )
-    uniform asset defaultValue (
-        doc = """The default value of the parameter"""
+    
+    rel defaultValue (
+        doc = """The default texture asset for the parameter"""
     )
 }
 
@@ -262,7 +263,7 @@ class MaterialParamTexture "MaterialParamTexture" (
     inherits = </Typed>
     doc = """A material parameter representing an integer vector value"""
 ) {
-    uniform asset texture (
-        doc = """The path to the texture asset"""
+    rel value (
+        doc = """The default texture asset for the parameter"""
     )
 }

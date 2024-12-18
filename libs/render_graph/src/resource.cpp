@@ -63,6 +63,56 @@ namespace rn::rg
         };
     }
 
+    Texture2DUsage CopyFrom(Texture2D texture)
+    {
+        return {
+            .texture = texture,
+            .access = TextureAccess::CopySource,
+        };
+    }
+
+    Texture3DUsage CopyFrom(Texture3D texture)
+    {
+        return {
+            .texture = texture,
+            .access = TextureAccess::CopySource,
+        };
+    }
+
+    BufferUsage CopyFrom(Buffer buffer)
+    {
+        return {
+            .buffer = buffer,
+            .access = BufferAccess::CopySource,
+        };
+    }
+
+
+    Texture2DUsage CopyTo(Texture2D texture)
+    {
+        return {
+            .texture = texture,
+            .access = TextureAccess::CopyDest,
+        };
+    }
+
+    Texture3DUsage CopyTo(Texture3D texture)
+    {
+        return {
+            .texture = texture,
+            .access = TextureAccess::CopyDest,
+        };
+    }
+
+    BufferUsage CopyTo(Buffer buffer)
+    {
+        return {
+            .buffer = buffer,
+            .access = BufferAccess::CopyDest,
+        };
+    }
+
+
     BufferUsage UniformBuffer(Buffer buffer)
     {
         return {

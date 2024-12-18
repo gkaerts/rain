@@ -28,3 +28,6 @@
 [submodule "contrib/submodules/MikkTSpace"]
 	path = contrib/submodules/MikkTSpace
 	url = https://github.com/mmikk/MikkTSpace
+[submodule "contrib/submodules/imgui"]
+	path = contrib/submodules/imgui
+	url = https://github.com/ocornut/imgui

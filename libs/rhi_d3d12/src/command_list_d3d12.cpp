@@ -719,8 +719,11 @@ namespace rn::rhi
                     .AccessBefore = ToBarrierAccess(barrier.fromAccess),
                     .AccessAfter = ToBarrierAccess(barrier.toAccess),
                     .pResource = resource,
-                    .Offset = barrier.offset,
-                    .Size = barrier.size,
+                    .Offset = 0,
+                    .Size = UINT64_MAX,
+                    // NOTE: D3D12 does not support subregion barriers yet :(
+                    //.Offset = barrier.offset,
+                    //.Size = barrier.size,
                 });
             }
 

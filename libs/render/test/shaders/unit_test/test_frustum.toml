@@ -1,0 +1,14 @@
+[build]
+type = "shader"
+
+[shader]
+source = "test_frustum.hlsl"
+include_dirs = [ 
+    "../../libs/rhi/include",
+    "../../libs/render/include",
+    "../../libs/render/shaders",
+    "../../libs/render/test/shaders",
+]
+
+[compute_program]
+compute = "test_main"

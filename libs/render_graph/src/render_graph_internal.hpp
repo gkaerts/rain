@@ -132,7 +132,7 @@ namespace rn::rg
     {
         rhi::GPUAllocation pinnedAllocation = rhi::GPUAllocation::Invalid;
 
-        rhi::Buffer buffer = rhi::Buffer::Invalid;
+        BufferRegion buffer;
         rhi::BufferView view = rhi::BufferView::Invalid;
         rhi::TypedBufferView typedView = rhi::TypedBufferView::Invalid;
         rhi::UniformBufferView uniformView = rhi::UniformBufferView::Invalid;

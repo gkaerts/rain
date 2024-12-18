@@ -10,6 +10,7 @@ namespace rn::app
 {
     void Application::InitializePlatform()
     {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         SDL_SetMainReady();
         SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
     }
@@ -26,6 +27,11 @@ namespace rn::app
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
+            if (_eventListenerHook)
+            {
+                _eventListenerHook(&event);
+            }
+
             if (event.type == SDL_QUIT)
             {
                 return false;
@@ -34,9 +40,9 @@ namespace rn::app
             {
                 SDL_Window* sdlWindow = SDL_GetWindowFromID(event.window.windowID);
                 RenderWindow* renderWindow = (RenderWindow*)SDL_GetWindowData(sdlWindow, "RN_RENDER_WINDOW");
-                if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+                if (renderWindow && (event.window.event == SDL_WINDOWEVENT_RESIZED || event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED))
                 {
-                    renderWindow->OnResize();   
+                    renderWindow->OnResize();
                 }
             }
         }

@@ -27,7 +27,7 @@ namespace rn
 {
     std::filesystem::path MakeAssetReferencePath(std::string_view file, const pxr::SdfAssetPath& path, const std::filesystem::path& extension)
     {
-        std::string assetPath = path.GetAssetPath();
+        std::string assetPath = path.GetResolvedPath();
         std::filesystem::path outPath = MakeRelativeTo(file, assetPath);
         outPath.replace_extension(extension);
 

@@ -385,6 +385,7 @@ namespace rn
 
     bool ParseParameter(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Parameter& outParam)
     {
+        pxr::UsdStageWeakPtr stage = prim.GetPrim().GetStage();
         if (prim.IsA<pxr::RnMaterialShaderParamFloatVec>())
         {
             if (!ValidatePrim(file, prim, FLOAT_VEC_PARAM_PRIM_SCHEMA))
@@ -469,8 +470,17 @@ namespace rn
 
             pxr::RnMaterialShaderParamTexture param(prim);
             
+            pxr::SdfPathVector valuePaths = ResolveRelationTargets(param.GetDefaultValueRel());
+            if (valuePaths.empty())
+            {
+                BuildError(file) << "No texture asset specified for texture material shader parameter." << std::endl;
+                return false;
+            }
+
+            pxr::UsdPrim texturePrim = stage->GetPrimAtPath(valuePaths[0]);
+            pxr::VtValue assetId = texturePrim.GetAssetInfo()["identifier"];
             std::filesystem::path texturePath = MakeAssetReferencePath(file,
-                Value<pxr::SdfAssetPath>(param.GetDefaultValueAttr()), 
+                assetId.Get<pxr::SdfAssetPath>(), 
                 "texture");
 
             pxr::TfToken dimension = Value<pxr::TfToken>(param.GetDimensionAttr());

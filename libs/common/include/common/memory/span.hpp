@@ -21,7 +21,7 @@ namespace rn
 
 
         explicit(extent != std::dynamic_extent)
-        constexpr Span(std::initializer_list<value_type> li)
+        constexpr Span(std::initializer_list<value_type> li) noexcept
          : std::span<T, Extent>(li.begin(), li.end())
         {}
 

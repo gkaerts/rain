@@ -6,7 +6,7 @@
 
 #else
     #define RN_VK_SAMPLER_DESCRIPTOR_SET_INDEX 1
-    #define RN_DESCRIBE_STATIC_SAMPLER(reg, filter, addressU, addressV, addressW) [[vk::binding(reg, RN_VK_SAMPLER_DESCRIPTOR_SET_INDEX)]] SamplerState name : register(s##reg);
+    #define RN_DESCRIBE_STATIC_SAMPLER(name, filter, addressU, addressV, addressW, reg) [[vk::binding(reg, RN_VK_SAMPLER_DESCRIPTOR_SET_INDEX)]] SamplerState name : register(s##reg);
 
 #endif // !defined(__cplusplus)
 

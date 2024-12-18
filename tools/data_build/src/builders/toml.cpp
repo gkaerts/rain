@@ -101,6 +101,7 @@ namespace rn
 
     int DoBuildTOML(std::string_view file, const DataBuildOptions& options, Vector<std::string>& outFiles)
     {
+        int ret = 0;
         try
         {
             rn::BuildMessage(file) << "Building asset" << std::endl;
@@ -135,7 +136,7 @@ namespace rn
                 return 1;
             }
 
-            int ret = onBuildAsset(file, root, options, outFiles);
+            ret = onBuildAsset(file, root, options, outFiles);
         }
         catch(const toml::parse_error& e)
         {
@@ -144,6 +145,6 @@ namespace rn
             return 1;
         }
 
-        return 0;
+        return ret;
     }
 }

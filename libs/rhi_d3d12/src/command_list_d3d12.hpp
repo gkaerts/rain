@@ -132,7 +132,7 @@ namespace rn::rhi
             RasterPipeline currentRasterPipeline = RasterPipeline::Invalid;
             ComputePipeline currentComputePipeline = ComputePipeline::Invalid;
             RTPipeline currentRTPipeline = RTPipeline::Invalid;
-            TopologyType currentTopology = TopologyType::TriangleList;
+            TopologyType currentTopology = TopologyType::Count;
 
             Buffer currentIndexBuffer = Buffer::Invalid;
             uint32_t currentOffsetInIndexBuffer = 0;

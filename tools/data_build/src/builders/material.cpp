@@ -29,7 +29,7 @@ namespace rn
     const PrimSchema TEXTURE_PARAM_PRIM_SCHEMA = {
         .requiredProperties = {
             { .name = "dimension" },
-            { .name = "value", .fnIsValidPropertyValue = IsNonEmptyAssetPath }
+            { .name = "value" }
         }
     }; 
 
@@ -145,9 +145,18 @@ namespace rn
             if (paramPrim.IsA<pxr::RnMaterialParamTexture>())
             {
                 pxr::RnMaterialParamTexture param = pxr::RnMaterialParamTexture(paramPrim);
-                
+                pxr::SdfPathVector valuePaths = ResolveRelationTargets(param.GetValueRel());
+                if (valuePaths.empty())
+                {
+                    BuildError(file) << "No texture asset specified for texture material parameter." << std::endl;
+                    return false;
+                }
+
+                pxr::UsdPrim texturePrim = stage->GetPrimAtPath(valuePaths[0]);
+                pxr::VtValue assetId = texturePrim.GetAssetInfo()["identifier"];
+
                 std::filesystem::path texturePath = MakeAssetReferencePath(file,
-                    Value<pxr::SdfAssetPath>(param.GetTextureAttr()), 
+                    assetId.Get<pxr::SdfAssetPath>(), 
                     "texture");
 
                 assetPaths.emplace_back(texturePath.string());

@@ -17,6 +17,8 @@ namespace rn::app
         D3D12 = 0,
     };
 
+    using FnPlatformEventListener = void(*)(void* event);
+
     struct ApplicationConfig
     {
         size_t threadScopeBackingSize;
@@ -26,6 +28,8 @@ namespace rn::app
         const char* mainWindowTitle;
         uint32_t mainWindowWidth;
         uint32_t mainWindowHeight;
+
+        FnPlatformEventListener eventListenerHook;
 
         int argc;
         char** argv;
@@ -50,6 +54,7 @@ namespace rn::app
 
         rhi::Device* _rhiDevice = nullptr;
         RenderWindow* _mainWindow = nullptr;
+        FnPlatformEventListener _eventListenerHook = nullptr;
     };
 
 };

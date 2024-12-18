@@ -34,7 +34,13 @@ namespace rn::app
         void*           NativeWindow() const { return _nativeWindow; }
         rhi::SwapChain* RHISwapChain() const { return _rhiSwapChain; }
 
+    #if RN_PLATFORM_WINDOWS
+        SDL_Window*     SDLWindow() const { return _sdlWindow; }
+
+    #endif
+
         uint2           DrawableSize() const;
+        float           DPIScale() const;
 
     private:
 

@@ -195,6 +195,13 @@ namespace rn::rg
         rhi::LoadOp loadOp;
     };
 
+    struct BufferRegion
+    {
+        rhi::Buffer buffer;
+        uint32_t offset;
+        uint32_t size;
+    };
+
     Texture2DUsage  ShaderReadOnly(Texture2D texture);
     Texture3DUsage  ShaderReadOnly(Texture3D texture);
     BufferUsage     ShaderReadOnly(Buffer buffer, uint32_t structureSizeInBytes = 0);
@@ -202,6 +209,14 @@ namespace rn::rg
     Texture2DUsage  ShaderReadWrite(Texture2D texture, uint32_t mipIndex, ResourceReadWriteFlags rwFlags = ResourceReadWriteFlags::None);
     Texture3DUsage  ShaderReadWrite(Texture3D texture, uint32_t mipIndex, ResourceReadWriteFlags rwFlags = ResourceReadWriteFlags::None);
     BufferUsage     ShaderReadWrite(Buffer buffer, uint32_t structureSizeInBytes = 0, ResourceReadWriteFlags rwFlags = ResourceReadWriteFlags::None);
+
+    Texture2DUsage  CopyFrom(Texture2D texture);
+    Texture3DUsage  CopyFrom(Texture3D texture);
+    BufferUsage     CopyFrom(Buffer buffer);
+
+    Texture2DUsage  CopyTo(Texture2D texture);
+    Texture3DUsage  CopyTo(Texture3D texture);
+    BufferUsage     CopyTo(Buffer buffer);
 
     BufferUsage     UniformBuffer(Buffer buffer);
     BufferUsage     DrawIDBuffer(Buffer buffer);
