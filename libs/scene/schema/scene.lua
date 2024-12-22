@@ -2,17 +2,22 @@ import "common.lua"
 
 namespace "rn.scene.schema"
 
-EntityContainer = struct {
-    field(uint64, "entityTypeID"),
-    field(span(uint8), "data")
+Blob = struct {
+    field(span(uint8),"data")
 }
 
-PropertyContainer = struct {
-    field(uint64, "propertyTypeID"),
-    field(span(uint8), "data")
+Component = struct {
+    field(uint64, "typeID"),
+    field(Blob, "data")
+}
+
+Entity = struct {
+    field(String, "name"),
+    field(span(Component), "components")
 }
 
 Scene = struct {
-    field(span(EntityContainer), "entities"),
-    field(span(PropertyContainer), "properties")
+    field(span(Entity), "entities"),
+    field(span(Blob), "properties"),
+    field(span(Blob), "additionalData")
 }

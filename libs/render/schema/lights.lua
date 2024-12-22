@@ -3,7 +3,6 @@ import "common.lua"
 namespace "rn.render.schema"
 
 OmniLight = struct {
-    field(Float3,   "position"),
     field(ColorRGB, "color"),
     field(float,    "radius"),
     field(float,    "sourceRadius"),
@@ -12,8 +11,6 @@ OmniLight = struct {
 }
 
 SpotLight = struct {
-    field(Float3, "position"),
-    field(Float4, "orientation"),
     field(Float3, "color"),
     field(float, "radius"),
     field(float, "sourceRadius"),
@@ -24,8 +21,6 @@ SpotLight = struct {
 }
 
 RectLight = struct {
-    field(Float3, "position"),
-    field(Float4, "orientation"),
     field(Float3, "color"),
     field(float, "radius"),
     field(float, "intensity"),
