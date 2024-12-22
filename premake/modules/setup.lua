@@ -15,6 +15,13 @@ newaction {
     description = "Handles initial setup of the project. Installs a python virtual environment and downloads and builds OpenUSD.",
 
     onStart = function()
+
+        print("Setting up submodules")
+        os.execute("git submodule update --init --recursive")
+        
+        print("Downloading LFS objects")
+        os.execute("git lfs pull")
+
         if not os.isdir(PYTHON_VENV_PATH) then
             print("Generating python venv in build/python/venv")
             os.execute("python -m venv " .. PYTHON_VENV_PATH)
@@ -24,6 +31,10 @@ newaction {
 
         print ("Installing required python packages in venv")
         os.execute[["powershell scripts/InstallPythonVenvPackages.ps1"]]
+
+        if not os.isdir(DOWNLOADS_PATH) then
+            os.mkdir(DOWNLOADS_PATH)
+        end
 
         if not os.isfile(OPENUSD_DOWNLOAD_FULL_PATH) then
             print("Downloading OpenUSD")
