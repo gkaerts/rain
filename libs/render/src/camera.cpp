@@ -6,11 +6,11 @@ namespace rn::render
     constexpr const bool USE_REFERENCE_PATH_FOR_CAMERA_TRANSFORMS = false;
 
     // All transform are left-handed!
-    float4x4 WorldToView(const PerspectiveCamera& camera)
+    float4x4 WorldToView(const float4x4& xform, const PerspectiveCamera& camera)
     {
-        float3 lookVector = { camera.lookVector.x, camera.lookVector.y, camera.lookVector.z };
-        float3 upVector = { camera.upVector.x, camera.upVector.y, camera.upVector.z };
-        float3 position = { camera.position.x, camera.position.y, camera.position.z };
+        float3 lookVector = mul(float4(0.0f, 0.0f, 1.0f, 0.0f), xform).xyz;
+        float3 upVector =   mul(float4(0.0f, 1.0f, 0.0f, 0.0f), xform).xyz;
+        float3 position =   mul(float4(0.0f, 0.0f, 0.0f, 1.0f), xform).xyz;
 
         float3 r2 = normalize(lookVector);
         float3 r0 = normalize(cross(upVector, r2));
@@ -21,13 +21,13 @@ namespace rn::render
         float1 d1 = dot(r1, negPos);
         float1 d2 = dot(r2, negPos);
 
-        float4x4 xform;
-        xform[0] = float4(r0.xyz, d0.x);
-        xform[1] = float4(r1.xyz, d1.x);
-        xform[2] = float4(r2.xyz, d2.x);
-        xform[3] = float4(0.0f, 0.0f, 0.0f, 1.0f);
+        float4x4 outXform;
+        outXform[0] = float4(r0.xyz, d0.x);
+        outXform[1] = float4(r1.xyz, d1.x);
+        outXform[2] = float4(r2.xyz, d2.x);
+        outXform[3] = float4(0.0f, 0.0f, 0.0f, 1.0f);
 
-        return transpose(xform);
+        return transpose(outXform);
     }
 
     float4x4 ViewToProjection(const PerspectiveCamera& camera, float aspectRatio)
@@ -63,8 +63,8 @@ namespace rn::render
         return xform;
     }
 
-    float4x4 WorldToProjection(const PerspectiveCamera& camera, float aspectRatio)
+    float4x4 WorldToProjection(const float4x4& xform, const PerspectiveCamera& camera, float aspectRatio)
     {
-        return mul(WorldToView(camera), ViewToProjection(camera, aspectRatio));
+        return mul(WorldToView(xform, camera), ViewToProjection(camera, aspectRatio));
     }
 }

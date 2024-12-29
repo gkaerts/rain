@@ -1,3 +1,6 @@
+#define TOML_IMPLEMENTATION
+#include "toml++/toml.hpp"
+
 #include "toml.hpp"
 #include "shader.hpp"
 

@@ -7,17 +7,15 @@ using namespace rn;
 
 TEST(CameraTests, PerspectiveCamera_WorldToViewTransforms)
 {
+    float4x4 camXform = affine(float3(0.0f, 5.0f, 0.0f), quaternion::identity());
     render::PerspectiveCamera camera = 
     {
-        .position = { 0.0f, 5.0f, 0.0f },
-        .lookVector = { 0.0f, 0.0f, 1.0f },
-        .upVector = { 0.0f, 1.0f, 0.0 },
         .zNear = 0.1f,
         .zFar = 1000.0f,
         .verticalFoV = HALF_PI
     };
 
-    float4x4 worldToView = render::WorldToView(camera);
+    float4x4 worldToView = render::WorldToView(camXform, camera);
     float4 position = float4(0.0f, 5.0f, 1.0f, 1.0f);
     float4 viewPos = mul(position, worldToView);
     EXPECT_FLOAT_EQ(viewPos.f32[0], 0.0f);
@@ -37,9 +35,6 @@ TEST(CameraTests, PerspectiveCamera_ViewToProjectionTransforms)
 {
     render::PerspectiveCamera camera = 
     {
-        .position = { 0.0f, 5.0f, 0.0f },
-        .lookVector = { 0.0f, 0.0f, 1.0f },
-        .upVector = { 0.0f, 1.0f, 0.0 },
         .zNear = 0.1f,
         .zFar = 1000.0f,
         .verticalFoV = HALF_PI
@@ -58,17 +53,15 @@ TEST(CameraTests, PerspectiveCamera_ViewToProjectionTransforms)
 
 TEST(CameraTests, PerspectiveCamera_WorldToProjectionTransforms)
 {
+    float4x4 camXform = affine(float3(0.0f, 5.0f, 0.0f), quaternion::identity());
     render::PerspectiveCamera camera = 
     {
-        .position = { 0.0f, 5.0f, 0.0f },
-        .lookVector = { 0.0f, 0.0f, 1.0f },
-        .upVector = { 0.0f, 1.0f, 0.0 },
         .zNear = 0.1f,
         .zFar = 1000.0f,
         .verticalFoV = HALF_PI
     };
 
-    float4x4 worldToProjection = render::WorldToProjection(camera, 1.0f);
+    float4x4 worldToProjection = render::WorldToProjection(camXform, camera, 1.0f);
     float4 position = float4(0.0f, 5.0f, 8.0f, 1.0f);
     float4 projPos = mul(position, worldToProjection);
     projPos /= projPos.wwww;

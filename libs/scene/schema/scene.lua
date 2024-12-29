@@ -13,6 +13,7 @@ Component = struct {
 
 Entity = struct {
     field(String, "name"),
+    field(uint64, "archetypeID"),
     field(span(Component), "components")
 }
 

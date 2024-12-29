@@ -25,4 +25,4 @@ project "sceneTests"
 
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
 
-    links { "googletest", "rnCommon", "rnAsset", "rnData" }
+    links { "googletest", "rnCommon", "rnAsset", "rnScene", "rnData" }

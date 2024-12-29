@@ -9,7 +9,7 @@ namespace rn::render
 {
     using PerspectiveCamera = schema::PerspectiveCamera;
 
-    float4x4 WorldToView(const PerspectiveCamera& camera);
+    float4x4 WorldToView(const float4x4& xform, const PerspectiveCamera& camera);
     float4x4 ViewToProjection(const PerspectiveCamera& camera, float aspectRatio);
-    float4x4 WorldToProjection(const PerspectiveCamera& camera, float aspectRatio);
+    float4x4 WorldToProjection(const float4x4& xform, const PerspectiveCamera& camera, float aspectRatio);
 }
