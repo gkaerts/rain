@@ -6,21 +6,23 @@
 
 using namespace rn;
 
-RN_DEFINE_HANDLE(TestHandle, 0x90);
 struct TestType
 {
     uint32_t data;
 };
 
-class TestAssetBuilder : public asset::Builder<TestHandle, TestType>
+class TestAssetBuilder : public asset::Builder<TestType>
 {
 public:
 
     TestType Build(const asset::AssetBuildDesc& desc) override
     {
         RN_ASSERT(desc.data.size() == sizeof(TestType));
-        const TestType* assetData = reinterpret_cast<const TestType*>(desc.data.data());
-        return *assetData;
+
+        TestType assetData;
+        std::memcpy(&assetData, desc.data.data(), sizeof(TestType));
+        
+        return assetData;
     }
 
     void Destroy(TestType& data) override {}
@@ -35,8 +37,8 @@ TEST(AssetTests, CanRegisterAssetType)
     });
 
     TestAssetBuilder testAssetBuilder;
-    registry.RegisterAssetType<TestHandle, TestType>({
-        .identifierHash = HashString(".test_asset"),
+    registry.RegisterAssetType<TestType>({
+        .extensionHash = HashString(".test_asset"),
         .initialCapacity = 16,
         .builder = &testAssetBuilder
     });
@@ -102,7 +104,6 @@ namespace
 
 TEST(AssetTests, CanLoadAsset)
 {
-    
     asset::Registry registry({
         .contentPrefix = "",
         .enableMultithreadedLoad = true,
@@ -110,21 +111,21 @@ TEST(AssetTests, CanLoadAsset)
     });
 
     TestAssetBuilder testAssetBuilder;
-    registry.RegisterAssetType<TestHandle, TestType>({
-        .identifierHash = HashString(".test_asset"),
+    registry.RegisterAssetType<TestType>({
+        .extensionHash = HashString(".test_asset"),
         .initialCapacity = 16,
         .builder = &testAssetBuilder
     });
 
-    TestHandle handle1 = registry.Load<TestHandle>("test_asset_1.test_asset");
-    EXPECT_TRUE(IsValid(handle1));
+    asset::AssetIdentifier handle1 = asset::MakeAssetIdentifier("test_asset_1.test_asset");
+    registry.Load("test_asset_1.test_asset");
 
-    const TestType* data1 = registry.Resolve<TestHandle, TestType>(handle1);
+    const TestType* data1 = registry.Resolve<TestType>(handle1);
     EXPECT_EQ(data1->data, 0xDEADBEEF);
 
-    TestHandle handle2 = registry.Load<TestHandle>("test_asset_2.test_asset");
-    EXPECT_TRUE(IsValid(handle2));
+    asset::AssetIdentifier handle2 = asset::MakeAssetIdentifier("test_asset_2.test_asset");
+    registry.Load("test_asset_2.test_asset");
 
-    const TestType* data2 = registry.Resolve<TestHandle, TestType>(handle2);
+    const TestType* data2 = registry.Resolve<TestType>(handle2);
     EXPECT_EQ(data2->data, 0xDABABADA);
 }

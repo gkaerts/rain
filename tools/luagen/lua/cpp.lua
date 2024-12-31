@@ -17,11 +17,13 @@ cpp.PrimitiveTypeNames = {
 }
 
 cpp.SpanName = "rn::Span"
+cpp.ArrayName = "std::array"
 cpp.StringName = "std::string_view"
 cpp.AdditionalHeaderLines = {
     '#include "common/memory/memory.hpp"',
     '#include "common/memory/span.hpp"',
-    '#include "common/memory/string.hpp"'
+    '#include "common/memory/string.hpp"',
+    '#include <array>'
 }
 cpp.AssertName = "RN_ASSERT"
 
@@ -121,10 +123,10 @@ end
 function cpp:writeEnum(name, type)
     local w = self.writer
     if type.external then
-        w:writeLn("enum class %s : %s;", name, self.PrimitiveTypeNames[Schema.PrimitiveType.Uint32])
+        w:writeLn("enum class %s : %s;", name, self.PrimitiveTypeNames[type.underlyingType])
 
     else
-        self:openScope("enum class %s : %s", name, self.PrimitiveTypeNames[Schema.PrimitiveType.Uint32])
+        self:openScope("enum class %s : %s", name, self.PrimitiveTypeNames[type.underlyingType])
 
         local enumValue = 0
         local includeCount = true
@@ -159,6 +161,9 @@ function cpp:resolveTypeName(typeToResolve)
 
     elseif (typeToResolve.layout == Schema.TypeLayout.Span) then
         name = self.SpanName .. "<" .. self:resolveTypeName(typeToResolve.spannedType) .. ">"
+
+    elseif (typeToResolve.layout == Schema.TypeLayout.Array) then
+        name = self.ArrayName .. "<" .. self:resolveTypeName(typeToResolve.spannedType) .. ", " .. typeToResolve.elementCount .. ">"
 
     else
         for _, v in ipairs(self.typesToSerialize) do
@@ -211,7 +216,7 @@ function cpp:resolveTypeValue(typeToResolve, typeValue)
         end
         valueStr = valueStr .. " }"
 
-    elseif typeToResolve.layout == Schema.TypeLayout.Span then
+    elseif typeToResolve.layout == Schema.TypeLayout.Span or typeToResolve.layout == Schema.TypeLayout.Array then
         valueStr = "{";
         for i, v in ipairs(typeValue) do
             local innerValue = self:resolveTypeValue(typeToResolve.spannedType, v)
@@ -254,7 +259,7 @@ function cpp:writeStruct(name, type)
             for _, d in ipairs(type.decorations) do
                 local decorationTypeName = ""
                 local decorationValue = self:resolveTypeValue(d.type, d.value)
-                if d.type.layout == Schema.TypeLayout.Span then
+                if d.type.layout == Schema.TypeLayout.Span or d.type.layout == Schema.TypeLayout.Array then
                     -- Treat spans decorations as arrays
                     decorationTypeName = self:resolveTypeName(d.type.spannedType)
                     w:writeLn("static constexpr const %s %s[] = %s;", decorationTypeName, d.name, decorationValue)

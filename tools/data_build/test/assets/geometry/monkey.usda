@@ -3,7 +3,7 @@
     doc = "Blender v3.0.0"
     metersPerUnit = 1
     upAxis = "Z"
-    defaultPrim = "Suzanna"
+    defaultPrim = "Suzanne"
 )
 
 def Xform "Suzanne"(

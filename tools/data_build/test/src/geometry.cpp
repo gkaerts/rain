@@ -23,16 +23,17 @@ TEST(DataBuildTests_Geometry, IntegrationTest_Monkey)
         rhi::DefaultDeviceMemorySettings());
 
     data::GeometryBuilder geometryBuilder(device);
-    registry.RegisterAssetType<data::Geometry, data::GeometryData>({
-        .identifierHash = HashString(".geometry"),
+    registry.RegisterAssetType<data::GeometryData>({
+        .extensionHash = HashString(".geometry"),
         .initialCapacity = 32,
         .builder = &geometryBuilder
     });
 
-    data::Geometry monkey = registry.Load<data::Geometry>("geometry/monkey.Suzanne.geometry");
-    EXPECT_NE(monkey, data::Geometry::Invalid);
+    constexpr const std::string_view geometryPath = "geometry/monkey.Suzanne.geometry";
+    asset::AssetIdentifier geometryId = asset::MakeAssetIdentifier(geometryPath);
+    registry.Load(geometryPath);
 
-    const data::GeometryData* monkeyData = registry.Resolve<data::Geometry, data::GeometryData>(monkey);
+    const data::GeometryData* monkeyData = registry.Resolve<data::GeometryData>(geometryId);
     EXPECT_NE(monkeyData, nullptr);
     EXPECT_NE(monkeyData->dataGPURegion.allocation, rhi::GPUAllocation::Invalid);
     EXPECT_NE(monkeyData->dataBuffer, rhi::Buffer::Invalid);
@@ -72,16 +73,17 @@ TEST(DataBuildTests_Geometry, IntegrationTest_CubeSphere)
         rhi::DefaultDeviceMemorySettings());
 
     data::GeometryBuilder geometryBuilder(device);
-    registry.RegisterAssetType<data::Geometry, data::GeometryData>({
-        .identifierHash = HashString(".geometry"),
+    registry.RegisterAssetType<data::GeometryData>({
+        .extensionHash = HashString(".geometry"),
         .initialCapacity = 32,
         .builder = &geometryBuilder
     });
 
-    data::Geometry cubeSphere = registry.Load<data::Geometry>("geometry/cube_sphere.Cube.geometry");
-    EXPECT_NE(cubeSphere, data::Geometry::Invalid);
+    constexpr const std::string_view geometryPath = "geometry/cube_sphere.Cube.geometry";
+    asset::AssetIdentifier geometryId = asset::MakeAssetIdentifier(geometryPath);
+    registry.Load(geometryPath);
 
-    const data::GeometryData* cubeSphereData = registry.Resolve<data::Geometry, data::GeometryData>(cubeSphere);
+    const data::GeometryData* cubeSphereData = registry.Resolve<data::GeometryData>(geometryId);
     EXPECT_NE(cubeSphereData, nullptr);
     EXPECT_NE(cubeSphereData->dataGPURegion.allocation, rhi::GPUAllocation::Invalid);
     EXPECT_NE(cubeSphereData->dataBuffer, rhi::Buffer::Invalid);

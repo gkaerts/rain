@@ -22,7 +22,6 @@ namespace rn::rhi
 namespace rn::data
 {
     RN_MEMORY_CATEGORY(Data)
-    RN_DEFINE_HANDLE(Texture, 0x40)
 
     enum class TextureType : uint32_t
     {
@@ -80,7 +79,7 @@ namespace rn::data
         std::mutex _mutex;
     };
 
-    class TextureBuilder : public asset::Builder<Texture, TextureData>
+    class TextureBuilder : public asset::Builder<TextureData>
     {
     public:
 

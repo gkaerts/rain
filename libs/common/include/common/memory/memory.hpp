@@ -54,8 +54,9 @@ namespace rn
     template <typename T> void TrackedDeleteArray(T* ptr);
 
     // Thread-local scope allocation
-    struct MemoryScope
+    class MemoryScope
     {
+    public:
         using FnDeleter = void(*)(void*);
         struct Deleter
         {
@@ -67,8 +68,12 @@ namespace rn
         MemoryScope();
         ~MemoryScope();
 
+        void PushDeleter(void* ptr, void(*deleteFn)(void*));
+
+    private:
         uintptr_t offset;
         Deleter* lastDeleter;
+        MemoryScope* prevScope;
     };
 
     void InitializeScopedAllocationForThread(size_t backingSize);
@@ -82,7 +87,7 @@ namespace rn
 
     template <typename T, typename... Args> T* ScopedNew(MemoryScope& scope, Args&&... args);
     template <typename T> T* ScopedNewArray(MemoryScope& scope, size_t size);
-    
+    template <typename T> T* ScopedNewArrayNoInit(MemoryScope& scope, size_t size);
 
     // STL adapters
     template <typename T, typename = void>

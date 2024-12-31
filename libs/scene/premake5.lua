@@ -24,11 +24,14 @@ project "rnScene"
         "src/**.c", 
         "src/**.cpp", 
         "include/**.h",
-        "include/**.hpp"
+        "include/**.hpp",
+        PROJECT_ROOT .. "/build/codegen/rnScene/**.hpp",
+        PROJECT_ROOT .. "/build/codegen/rnScene/**.cpp",
     }
 
     RN_SCENE_INCLUDES = {
-        "%{wks.location}/../../libs/scene/include",
+        PROJECT_ROOT .. "/libs/scene/include",
+        PROJECT_ROOT .. "/build/codegen/rnScene",
     }
 
     includedirs(RN_COMMON_INCLUDES)
@@ -43,7 +46,6 @@ project "rnScene"
 
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
     
-    dependson { "data_build" }
     links { "rnCommon", "rnAsset", "rnData" }
 
 if BUILD_PROPERTIES.IncludeTestsInBuild then

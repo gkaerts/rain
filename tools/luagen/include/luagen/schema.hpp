@@ -23,6 +23,18 @@ namespace rn
         constexpr bool IsSpanV = IsSpan<T>::value;
 
         template <typename T>
+        struct IsByteSpan : std::false_type {};
+
+        template <>
+        struct IsByteSpan<Span<uint8_t>> : std::true_type {};
+
+        template <>
+        struct IsByteSpan<std::span<uint8_t>> : std::true_type {};
+
+        template <typename T>
+        constexpr bool IsByteSpanV = IsByteSpan<T>::value;
+
+        template <typename T>
         struct IsStringView : std::false_type {};
 
         template <>
@@ -30,6 +42,15 @@ namespace rn
 
         template <typename T>
         constexpr bool IsStringViewV = IsStringView<T>::value;
+
+        template <typename T>
+        struct IsStdArray : std::false_type {};
+
+        template <typename T, size_t N>
+        struct IsStdArray<std::array<T, N>> : std::true_type {};
+
+        template <typename T>
+        constexpr bool IsStdArrayV = IsStdArray<T>::value;
     }
 
     constexpr const uint64_t SERIALIZED_SPAN_SIZE = sizeof(uint64_t);
@@ -43,7 +64,7 @@ namespace rn
     }
 
     template <typename T>
-    requires std::is_aggregate_v<T>
+    requires std::is_aggregate_v<T> && !internal::IsStdArrayV<T>
     uint64_t SerializedSize(const T& v)
     {
         return T::SerializedSize(v);
@@ -55,10 +76,30 @@ namespace rn
     }
 
     template <typename T>
-    requires internal::IsSpanV<T>
+    requires internal::IsSpanV<T> && !internal::IsByteSpanV<T>
     uint64_t SerializedSize(const T& v)
     {
         uint64_t size = SERIALIZED_SPAN_SIZE;
+        for (const auto& e : v)
+        {
+            size += SerializedSize(e);
+        }
+
+        return size;
+    }
+
+    template <typename T>
+    requires internal::IsByteSpanV<T>
+    uint64_t SerializedSize(const T& v)
+    {
+        return SERIALIZED_SPAN_SIZE + v.size_bytes();
+    }
+
+    template <typename T>
+    requires internal::IsStdArrayV<T>
+    uint64_t SerializedSize(const T& v)
+    {
+        uint64_t size = 0;
         for (const auto& e : v)
         {
             size += SerializedSize(e);
@@ -85,7 +126,7 @@ namespace rn
     }
 
     template <typename T>
-    requires std::is_aggregate_v<T>
+    requires std::is_aggregate_v<T> && !internal::IsStdArrayV<T>
     uint64_t Serialize(const Span<uint8_t> dest, uint64_t& offset, const T& v)
     {
         uint64_t val = T::Serialize(v, offset, dest);
@@ -129,6 +170,21 @@ namespace rn
     }
 
     template <typename T>
+    requires internal::IsStdArrayV<T>
+    uint64_t Serialize(const Span<uint8_t> dest, uint64_t& offset, const T& v)
+    {
+        uint64_t size = 0;
+
+        // Write elements/characters to the tail   
+        for (const auto& e : v)
+        {
+            uint64_t elementSize = Serialize(dest, offset, e);
+            size += elementSize;
+        }
+        return size;
+    }
+
+    template <typename T>
     uint64_t Serialize(const Span<uint8_t> dest, const T& v)
     {
         uint64_t offset = 0;
@@ -154,14 +210,14 @@ namespace rn
     }
 
     template <typename T>
-    requires std::is_aggregate_v<T>
+    requires std::is_aggregate_v<T> && !internal::IsStdArrayV<T>
     T Deserialize(const Span<const uint8_t> src, uint64_t& offset, void*(*fnAlloc)(size_t))
     {
         return T::Deserialize(src, offset, fnAlloc);
     }
 
     template <typename T>
-    requires internal::IsSpanV<T>
+    requires internal::IsSpanV<T> && !internal::IsByteSpanV<T>
     T Deserialize(const Span<const uint8_t> src, uint64_t& offset, void*(*fnAlloc)(size_t))
     {
         // Load where we will find the span data, followed by the amount of elements
@@ -178,6 +234,37 @@ namespace rn
         }
 
         return { span, spanCount };
+    }
+
+    template <typename T>
+    requires internal::IsStdArrayV<T>
+    T Deserialize(const Span<const uint8_t> src, uint64_t& offset, void*(*fnAlloc)(size_t))
+    {
+        using ValueType = typename T::value_type;
+        T outArray = {};
+
+        // Deserialize elements/characters
+        for (uint64_t i = 0; i < outArray.size(); ++i)
+        {
+            outArray[i] = Deserialize<ValueType>(src, offset, fnAlloc);
+        }
+
+        return outArray;
+    }
+
+
+    template <typename T>
+    requires internal::IsByteSpanV<T>
+    T Deserialize(const Span<const uint8_t> src, uint64_t& offset, void*(*fnAlloc)(size_t))
+    {
+        // Load where we will find the span data, followed by the amount of elements
+        uint64_t spanCount = DeserializeDirect<uint64_t>(src, offset);
+
+        uint8_t* ptr = static_cast<uint8_t*>(fnAlloc(spanCount));
+        std::memcpy(ptr, src.data() + offset, spanCount);
+        offset += spanCount;
+
+        return { ptr, spanCount };
     }
 
     template <typename T>

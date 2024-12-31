@@ -12,16 +12,13 @@ namespace rn::data
 {
     RN_MEMORY_CATEGORY(Data);
 
-    RN_HANDLE(MaterialShader);
-    RN_DEFINE_HANDLE(Material, 0x43)
-
     struct MaterialData
     {
-        MaterialShader shader;
-        Span<uint8_t> uniformData;
+        asset::AssetIdentifier  shader;
+        Span<uint8_t>           uniformData;
     };
 
-    class MaterialBuilder : public asset::Builder<Material, MaterialData>
+    class MaterialBuilder : public asset::Builder<MaterialData>
     {
         public:
 

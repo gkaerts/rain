@@ -8,12 +8,14 @@
 #include <pxr/usd/usd/primRange.h>
 #include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdGeom/xform.h>
 
 #include <pxr/usd/usdShade/material.h>
 
 #include "rn/texture.h"
 #include "rn/materialShader.h"
 #include "rn/rainMaterialAPI.h"
+#include "rn/tokens.h"
 #pragma warning(pop)
 
 #include "usd.hpp"
@@ -23,6 +25,7 @@
 #include "texture.hpp"
 #include "material_shader.hpp"
 #include "material.hpp"
+#include "scene/scene.hpp"
 namespace rn
 {
     std::filesystem::path MakeAssetReferencePath(std::string_view file, const pxr::SdfAssetPath& path, const std::filesystem::path& extension)
@@ -98,6 +101,12 @@ namespace rn
                     BuildError(file) << "Required relationship '" << key.name << "' does not list any elements." << std::endl;
                     return false;
                 }
+
+                if (key.fnIsValidRelationship && !key.fnIsValidRelationship(file, *prim.GetStage(), rel))
+                {
+                    BuildError(file) << "Required relationship '" << key.name << "' is invalid." << std::endl;
+                    return false;
+                }
             }
             
         }
@@ -110,6 +119,15 @@ namespace rn
                 if (!key.fnIsValidPropertyValue(file, attr))
                 {
                     BuildError(file) << "Attribute '" << key.name << "' has an unsupported value." << std::endl;
+                    return false;
+                }
+            }
+
+            if (pxr::UsdRelationship rel = prim.GetRelationship(nameToken); rel)
+            {
+                if (key.fnIsValidRelationship && !key.fnIsValidRelationship(file, *prim.GetStage(), rel))
+                {
+                    BuildError(file) << "Relationship '" << key.name << "' is invalid." << std::endl;
                     return false;
                 }
             }
@@ -135,34 +153,51 @@ namespace rn
 
         double unitScale = 1.0 / pxr::UsdGeomGetStageMetersPerUnit(stage);
 
-        for (const pxr::UsdPrim& prim : range)
+        pxr::UsdPrim rootPrim = stage->GetDefaultPrim();
+        if (!rootPrim.IsValid())
         {
-            if (prim.IsA<pxr::UsdGeomMesh>())
+            BuildError(file) << "No valid default prim provided." << std::endl;
+            return 1;
+        }
+
+        if (rootPrim.IsComponent())
+        {
+            // This is an asset USD file
+            for (const pxr::UsdPrim& prim : range)
             {
-                UsdGeometryBuildDesc desc = {
-                    .mesh = pxr::UsdGeomMesh(prim),
-                    .fnPermute = fnPermute,
-                    .unitScale = float(unitScale)
-                };
-                
-                if (!ProcessUsdGeomMesh(file, options, desc, outFiles))
+                if (prim.IsA<pxr::UsdGeomMesh>())
                 {
-                    return 1;
+                    UsdGeometryBuildDesc desc = {
+                        .mesh = pxr::UsdGeomMesh(prim),
+                        .fnPermute = fnPermute,
+                        .unitScale = float(unitScale)
+                    };
+                    
+                    if (!ProcessUsdGeomMesh(file, options, desc, outFiles))
+                    {
+                        return 1;
+                    }
+                }
+                else if (prim.IsA<pxr::RnTexture>())
+                {
+                    return ProcessUsdTexture(file, options, prim, outFiles);
+                }
+                else if (prim.IsA<pxr::RnMaterialShader>())
+                {
+                    return ProcessUsdMaterialShader(file, options, prim, outFiles);
+                }
+                else if (prim.IsA<pxr::UsdShadeMaterial>() && prim.HasAPI<pxr::RnRainMaterialAPI>())
+                {
+                    return ProcessUsdMaterial(file, options, prim, outFiles);
                 }
             }
-            else if (prim.IsA<pxr::RnTexture>())
-            {
-                return ProcessUsdTexture(file, options, prim, outFiles);
-            }
-            else if (prim.IsA<pxr::RnMaterialShader>())
-            {
-                return ProcessUsdMaterialShader(file, options, prim, outFiles);
-            }
-            else if (prim.IsA<pxr::UsdShadeMaterial>() && prim.HasAPI<pxr::RnRainMaterialAPI>())
-            {
-                return ProcessUsdMaterial(file, options, prim, outFiles);
-            }
         }
+        else
+        {
+            // This is a "scene" USD file
+            return ProcessUsdScene(file, options, rootPrim, outFiles);
+        }
+        
         return 0;
     }
 }

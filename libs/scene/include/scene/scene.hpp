@@ -1,58 +1,98 @@
 #pragma once
 
 #include "common/common.hpp"
-#include "common/handle.hpp"
 #include "common/pack_sort.hpp"
-#include "common/memory/bump_allocator.hpp"
 #include "common/memory/hash_map.hpp"
 #include "common/memory/span.hpp"
 #include "common/memory/vector.hpp"
 
 namespace rn::scene
 {
+    class Scene;
+
     RN_MEMORY_CATEGORY(Scene);
-
-    RN_DEFINE_HANDLE(Entity, 0x90);
-
-    class EntityBuilderBase
+    enum class Entity : uint64_t
     {
-    public:
-
-        virtual ~EntityBuilderBase() {}
-
-        virtual size_t      BuildEntity(Entity entity) = 0;
-        virtual size_t      EntityToIndex(Entity entity) const = 0;
-        virtual void*       Component(size_t entityIdx, uint64_t typeID) = 0;
-        virtual const void* Component(size_t entityIdx, uint64_t typeID) const = 0;
-        virtual void*       ComponentArray(uint64_t typeID) = 0;
-        virtual const void* ComponentArray(uint64_t typeID) const = 0;
-        virtual size_t      EntityCount() const = 0;
+        Invalid = 0
     };
 
-    template <typename... Components>
-    class EntityBuilder : public EntityBuilderBase
+    inline bool IsValid(Entity e) { return e != Entity::Invalid; }
+
+    template <typename... Cs>
+    struct _EntityArchetype
+    {
+        static const uint64_t ID;
+    };
+
+    template <typename... Cs>
+    using EntityArchetype = meta::InstantiateSortedT<_EntityArchetype, std::remove_cvref_t<Cs>...>;
+
+    class ComponentStorageBase
     {
     public:
 
-        ~EntityBuilder() override {}
+        virtual ~ComponentStorageBase() {};
 
-        size_t      BuildEntity(Entity entity) override;
-        size_t      EntityToIndex(Entity entity) const override;
-        void*       Component(size_t entityIdx, uint64_t typeID) override;
-        const void* Component(size_t entityIdx, uint64_t typeID) const override;
-        void*       ComponentArray(uint64_t typeID);
-        const void* ComponentArray(uint64_t typeID) const;
-        size_t      EntityCount() const override;
+        virtual void        AddComponent() = 0;
+        virtual void        RemoveComponent(size_t idx) = 0;
+        virtual void*       Component(size_t idx) = 0;
+        virtual const void* Component(size_t idx) const = 0;
+        virtual size_t      Count() const = 0;
+        virtual uint64_t    ID() const = 0;
+        virtual size_t      ComponentSize() const = 0;
+    };
+
+    template <typename T>
+    class ComponentStorage : public ComponentStorageBase
+    {
+    public:
+
+        ~ComponentStorage() override {};
+
+        void        AddComponent() override;
+        void        RemoveComponent(size_t idx) override;
+        void*       Component(size_t idx) override;
+        const void* Component(size_t idx) const override;
+        size_t      Count() const override;
+        uint64_t    ID() const { return TypeID<T>(); }
+        size_t      ComponentSize() const override { return sizeof(T); }
+
+    private:
+
+        Vector<T> _storage = MakeVector<T>(MemoryCategory::Scene);
+    };
+
+    struct ComponentDesc
+    {
+        using FnBuildStorage = ComponentStorageBase*(*)();
+
+        FnBuildStorage buildStorage;
+        uint64_t typeID;
+    };
+
+    template <typename C>
+    ComponentDesc MakeComponentDesc();
+
+    class EntityBuilder
+    {
+    public:
+
+        EntityBuilder(Span<ComponentStorageBase*> componentStorage);
+        ~EntityBuilder();
+
+        size_t              BuildEntity(Entity entity);
+        size_t              EntityToIndex(Entity entity) const;
+        Span<uint8_t>       Component(size_t entityIdx, uint64_t typeID);
+        Span<const uint8_t> Component(size_t entityIdx, uint64_t typeID) const;
+        size_t              EntityCount() const;
 
     private:
 
         using EntityToIndexMap  = HashMap<Entity, size_t>;
-        using ComponentVecTuple = std::tuple<Vector<Components>...>;
-        using TypeIDArray       = std::array<uint64_t, sizeof...(Components)>;
+        using StorageVector     = Vector<ComponentStorageBase*>;
 
-        TypeIDArray         _componentTypeIDs = { TypeID<Components>()... };
         EntityToIndexMap    _entityToIndex = MakeHashMap<Entity, size_t>(MemoryCategory::Scene);
-        ComponentVecTuple   _storage = { MakeVector<Components>(MemoryCategory::Scene)... };
+        StorageVector       _storage = MakeVector<ComponentStorageBase*>(MemoryCategory::Scene);
     };
 
     template <typename... Cs>
@@ -64,7 +104,7 @@ namespace rn::scene
 
         struct ArchetypeDesc
         {
-            EntityBuilderBase*  builder = nullptr;
+            EntityBuilder*      builder = nullptr;
             Vector<uint64_t>    componentIDs = MakeVector<uint64_t>(MemoryCategory::Scene);
             Vector<uint64_t>    superArchetypes = MakeVector<uint64_t>(MemoryCategory::Scene);
         };
@@ -74,11 +114,26 @@ namespace rn::scene
 
     public:
 
-        Scene() = default;
+        Scene();
+        Scene(Scene&& rhs);
+        Scene(const Scene&) = delete;
         ~Scene();
 
+        Scene& operator=(const Scene&) = delete;
+        Scene& operator=(Scene&& rhs);
+
+        void RegisterArchetype(Span<const ComponentDesc> components);
+
         template <typename... Args>
-        Entity AddEntity(Args&&... args);
+        void RegisterArchetype();
+
+        template <typename... Cs>
+        Entity AddEntity(std::string_view identifier, Cs&&... args);
+
+        Entity AddEntityFromDynamicArchetype(std::string_view identifier, Span<const ComponentDesc> components);
+
+        Span<uint8_t>       Component(Entity e, uint64_t typeID);
+        Span<const uint8_t> Component(Entity e, uint64_t typeID) const;
 
         template <typename... Cs>
         std::tuple<Cs const&...> Components(Entity e) const;
@@ -87,19 +142,12 @@ namespace rn::scene
         std::tuple<Cs&...> Components(Entity e);
 
         template <typename... Cs>
-        QueryResult<Cs...> Query();
+        QueryResult<Cs...> Query(MemoryScope& scope);
 
     private:
 
-        template <typename... Args>
-        ArchetypeMap::iterator MakeArchetype();
-
         ArchetypeMap        _archetypes = MakeHashMap<uint64_t, ArchetypeDesc>(MemoryCategory::Scene);
         EntityToArchetype   _entityToArchetype = MakeHashMap<Entity, uint64_t>(MemoryCategory::Scene);
-        uint64_t            _currentEntityID = 0;
-
-        BumpAllocator       _tempAllocator = { MemoryCategory::Scene, 16 * MEGA };
-
     };
 }
 

@@ -26,32 +26,35 @@ TEST(DataBuildTests_Material, IntegrationTest_Material)
         rhi::DefaultDeviceMemorySettings());
 
     data::TextureBuilder textureBuilder(device);
-    registry.RegisterAssetType<data::Texture, data::TextureData>({
-        .identifierHash = HashString(".texture"),
+    registry.RegisterAssetType<data::TextureData>({
+        .extensionHash = HashString(".texture"),
         .initialCapacity = 32,
         .builder = &textureBuilder
     });
 
     data::MaterialShaderBuilder shaderBuilder(device);
-    registry.RegisterAssetType<data::MaterialShader, data::MaterialShaderData>({
-        .identifierHash = HashString(".material_shader"),
+    registry.RegisterAssetType<data::MaterialShaderData>({
+        .extensionHash = HashString(".material_shader"),
         .initialCapacity = 32,
         .builder = &shaderBuilder
     });
 
     data::MaterialBuilder materialBuilder;
-    registry.RegisterAssetType<data::Material, data::MaterialData>({
-        .identifierHash = HashString(".material"),
+    registry.RegisterAssetType<data::MaterialData>({
+        .extensionHash = HashString(".material"),
         .initialCapacity = 32,
         .builder = &materialBuilder
     });
 
-    data::Material material = registry.Load<data::Material>("materials/material.material");
-    EXPECT_NE(material, data::Material::Invalid);
+    constexpr std::string_view materialPath = "materials/material.material";
+    asset::AssetIdentifier materialId = asset::MakeAssetIdentifier(materialPath);
+    registry.Load(materialPath);
 
-    const data::MaterialData* materialData = registry.Resolve<data::Material, data::MaterialData>(material);
+    const data::MaterialData* materialData = registry.Resolve<data::MaterialData>(materialId);
     EXPECT_NE(materialData, nullptr);
-    EXPECT_NE(materialData->shader, data::MaterialShader::Invalid);
+
+    asset::AssetIdentifier shaderId = asset::MakeAssetIdentifier("material_shaders/material_shader.material_shader");
+    EXPECT_EQ(materialData->shader, shaderId);
     EXPECT_TRUE(!materialData->uniformData.empty());
     EXPECT_NE(materialData->uniformData.data(), nullptr);
 }

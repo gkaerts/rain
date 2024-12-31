@@ -21,7 +21,6 @@ namespace rn::rhi
 namespace rn::data
 {
     RN_MEMORY_CATEGORY(Data)
-    RN_DEFINE_HANDLE(Geometry, 0x41)
 
     enum class VertexStreamFormat : uint32_t
     {
@@ -96,7 +95,7 @@ namespace rn::data
         std::mutex _mutex;
     };
 
-    class GeometryBuilder : public asset::Builder<Geometry, GeometryData>
+    class GeometryBuilder : public asset::Builder<GeometryData>
     {
     public:
 

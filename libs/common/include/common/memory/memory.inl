@@ -51,36 +51,23 @@ namespace rn
 
     template <typename T, typename... Args> T* ScopedNew(MemoryScope& scope, Args&&... args)
     {
-        void* deleterPtr = ScopedAlloc(sizeof(MemoryScope::Deleter), alignof(MemoryScope::Deleter));
-        if (!deleterPtr)
-        {
-            return nullptr;
-        }
-
         void* ptr = ScopedAlloc(sizeof(T), alignof(T));
         if (!ptr)
         {
             return nullptr;
         }
 
-        MemoryScope::Deleter* d = new (deleterPtr) MemoryScope::Deleter();
-        d->prevDeleter = scope.lastDeleter;
-        d->fn = [](void* ptr) { ((T*)ptr)->~T(); };
-        d->dataPtr = ptr;
-
-        scope.lastDeleter = d;
-
+        scope.PushDeleter(ptr, [](void* ptr) { ((T*)ptr)->~T(); });
         return new (ptr) T(std::forward<Args>(args)...);
     }
 
     template <typename T> T* ScopedNewArray(MemoryScope& scope, size_t size)
     {
-        void* deleterPtr = ScopedAlloc(sizeof(MemoryScope::Deleter), alignof(MemoryScope::Deleter));
-        if (!deleterPtr)
-        {
-            return nullptr;
-        }
+        return new (ScopedNewArrayNoInit<T>(scope, size)) T[size];
+    }
 
+    template <typename T> T* ScopedNewArrayNoInit(MemoryScope& scope, size_t size)
+    {
         size_t preambleSizeInBytes = AlignSize(sizeof(size_t), alignof(T));
         size_t sizeInBytes = 
             preambleSizeInBytes + 
@@ -96,10 +83,7 @@ namespace rn
         void* sizePtr = reinterpret_cast<void*>(uintptr_t(dataPtr) - sizeof(size_t));
 
         *reinterpret_cast<size_t*>(sizePtr) = size;
-
-        MemoryScope::Deleter* d = new (deleterPtr) MemoryScope::Deleter();
-        d->prevDeleter = scope.lastDeleter;
-        d->fn = [](void* ptr) 
+        scope.PushDeleter(dataPtr, [](void* ptr) 
         { 
             uintptr_t dataPtr = uintptr_t(ptr);
             uintptr_t sizePtr = dataPtr - sizeof(size_t);
@@ -109,12 +93,9 @@ namespace rn
             {
                 static_cast<T*>(ptr)[i].~T();
             } 
-        };
-        d->dataPtr = dataPtr;
+        });
 
-        scope.lastDeleter = d;
-
-        return new (dataPtr) T[size];
+        return static_cast<T*>(dataPtr);
     }
 
     template <typename T>

@@ -24,23 +24,24 @@ TEST(DataBuildTests_Texture, IntegrationTest_Texture)
         rhi::DefaultDeviceMemorySettings());
 
     data::TextureBuilder textureBuilder(device);
-    registry.RegisterAssetType<data::Texture, data::TextureData>({
-        .identifierHash = HashString(".texture"),
+    registry.RegisterAssetType<data::TextureData>({
+        .extensionHash = HashString(".texture"),
         .initialCapacity = 32,
         .builder = &textureBuilder
     });
 
-    data::Texture texture = registry.Load<data::Texture>("textures/texture.texture");
-    EXPECT_NE(texture, data::Texture::Invalid);
+    const std::string_view texturePath = "textures/texture.texture";
+    asset::AssetIdentifier textureId = asset::MakeAssetIdentifier(texturePath);
+    registry.Load(texturePath);
 
-    const data::TextureData* textureData = registry.Resolve<data::Texture, data::TextureData>(texture);
+    const data::TextureData* textureData = registry.Resolve<data::TextureData>(textureId);
     EXPECT_NE(textureData, nullptr);
     EXPECT_EQ(textureData->type, data::TextureType::Texture2D);
     EXPECT_NE(textureData->gpuRegion.allocation, rhi::GPUAllocation::Invalid);
     EXPECT_EQ(textureData->format, rhi::TextureFormat::BC7);
-    EXPECT_EQ(textureData->texture2D.width, 512);
-    EXPECT_EQ(textureData->texture2D.height, 512);
-    EXPECT_EQ(textureData->texture2D.mipLevels, 10);
+    EXPECT_EQ(textureData->texture2D.width, 64);
+    EXPECT_EQ(textureData->texture2D.height, 64);
+    EXPECT_EQ(textureData->texture2D.mipLevels, 7);
     EXPECT_NE(textureData->texture2D.rhiTexture, rhi::Texture2D::Invalid);
     EXPECT_NE(textureData->texture2D.rhiView, rhi::Texture2DView::Invalid);
 }

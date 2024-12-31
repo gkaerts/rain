@@ -2,6 +2,7 @@
 #include "data/material_shader.hpp"
 #include "data/texture.hpp"
 
+#include "asset/asset.hpp"
 #include "asset/registry.hpp"
 
 #include "material_gen.hpp"
@@ -18,6 +19,7 @@ namespace rn::data
 
     MaterialData MaterialBuilder::Build(const asset::AssetBuildDesc& desc)
     {
+        MemoryScope SCOPE;
         schema::Material asset = rn::Deserialize<schema::Material>(desc.data,
             [](size_t size) { 
                 return ScopedAlloc(size, CACHE_LINE_TARGET_SIZE); 
@@ -25,8 +27,8 @@ namespace rn::data
 
         const asset::Registry* registry = desc.registry;
 
-        MaterialShader shader = MaterialShader(desc.dependencies[asset.materialShader.identifier]);
-        const MaterialShaderData* shaderData = registry->Resolve<MaterialShader, MaterialShaderData>(shader);
+        asset::AssetIdentifier shader = desc.dependencies[asset.materialShader.identifier];
+        const MaterialShaderData* shaderData = registry->Resolve<MaterialShaderData>(shader);
 
         uint8_t* uniformData = TrackedNewArray<uint8_t>(MemoryCategory::Data, shaderData->uniformBufferSize);
         std::memset(uniformData, 0, shaderData->uniformBufferSize);
@@ -38,17 +40,17 @@ namespace rn::data
             {
             case MaterialShaderParameterType::Texture:
             {
-                Texture textureAsset = shaderParam.pTexture.defaultValue;
+                asset::AssetIdentifier textureAsset = shaderParam.pTexture.defaultValue;
                 for (const schema::TextureMaterialParameter& param : asset.textureParams)
                 {
                     if (shaderParam.name == param.name)
                     {
-                        textureAsset = Texture(desc.dependencies[param.value.identifier]);
+                        textureAsset = desc.dependencies[param.value.identifier];
                         break;
                     }
                 }
 
-                const TextureData* textureData = desc.registry->Resolve<Texture, TextureData>(textureAsset);
+                const TextureData* textureData = desc.registry->Resolve<TextureData>(textureAsset);
                 if (textureData->type == shaderParam.pTexture.type)
                 {
                     if (textureData->type == TextureType::Texture2D)

@@ -23,6 +23,8 @@ project "data_build_tests"
     includedirs(RN_COMMON_INCLUDES)
     includedirs(RN_ASSET_INCLUDES)
     includedirs(RN_DATA_INCLUDES)
+    includedirs(RN_SCENE_INCLUDES)
+    includedirs(RN_RENDER_INCLUDES)
     includedirs(RN_RHI_INCLUDES)
     includedirs(RN_RHI_D3D12_INCLUDES)
     includedirs(RN_GTEST_INCLUDES)
@@ -52,4 +54,4 @@ project "data_build_tests"
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
 
     dependson { "data_build" }
-    links { "googletest", "rnCommon", "rnAsset", "rnData", "rnRHI", "rnRHID3D12", "dxgi", "WinPixEventRuntime" }
+    links { "googletest", "rnCommon", "rnAsset", "rnData", "rnScene", "rnRender", "rnRHI", "rnRHID3D12", "dxgi", "WinPixEventRuntime" }

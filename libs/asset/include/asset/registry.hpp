@@ -38,26 +38,26 @@ namespace rn::asset
         Registry(const RegistryDesc& desc);
         ~Registry();
 
-        template <typename HandleType, typename DataType>
-        void RegisterAssetType(const AssetTypeDesc<HandleType, DataType>& desc);
+        template <typename DataType>
+        void RegisterAssetType(const AssetTypeDesc<DataType>& desc);
 
-        template <typename HandleType>
-        HandleType Load(std::string_view identifier, LoadFlags flags = LoadFlags::None);
+        void Load(std::string_view identifier, LoadFlags flags = LoadFlags::None);
 
-        template <typename HandleType, typename DataType>
-        const DataType* Resolve(HandleType handle) const;
+        template <typename DataType>
+        const DataType* Resolve(AssetIdentifier assetId) const;
+
+        template <typename DataType>
+        DataType* Resolve(AssetIdentifier assetId);
 
     private:
 
-        Asset LoadInternal(std::string_view identifier, LoadFlags flags);
-
         using BankMap = HashMap<size_t, BankBase*>;
 
-        String _contentPrefix;
-        bool _enableMultithreadedLoad;
-        FnMapAsset _onMapAsset;
-        BankMap _extensionHashToBank = MakeHashMap<size_t, BankBase*>(MemoryCategory::Asset);
-        BankMap _handleIDToBank = MakeHashMap<size_t, BankBase*>(MemoryCategory::Asset);
+        String      _contentPrefix;
+        bool        _enableMultithreadedLoad;
+        FnMapAsset  _onMapAsset;
+        BankMap     _typeIDToBank = MakeHashMap<uint64_t, BankBase*>(MemoryCategory::Asset);
+        BankMap     _extensionHashToBank = MakeHashMap<uint64_t, BankBase*>(MemoryCategory::Asset);
     };
 }
 

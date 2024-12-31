@@ -152,7 +152,7 @@ namespace rn::data
                 param.offsetInMaterialData = p.offsetInBuffer;
                 param.pTexture = {
                     .type = p.type,
-                    .defaultValue = Texture(desc.dependencies[p.defaultValue.identifier])
+                    .defaultValue = desc.dependencies[p.defaultValue.identifier]
                 };
             }
 

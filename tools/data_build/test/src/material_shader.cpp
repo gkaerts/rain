@@ -26,23 +26,24 @@ TEST(DataBuildTests_MaterialShader, IntegrationTest_MaterialShader)
 
     // Need a texture builder to handle dependencies!
     data::TextureBuilder textureBuilder(device);
-    registry.RegisterAssetType<data::Texture, data::TextureData>({
-        .identifierHash = HashString(".texture"),
+    registry.RegisterAssetType<data::TextureData>({
+        .extensionHash = HashString(".texture"),
         .initialCapacity = 32,
         .builder = &textureBuilder
     });
 
     data::MaterialShaderBuilder shaderBuilder(device);
-    registry.RegisterAssetType<data::MaterialShader, data::MaterialShaderData>({
-        .identifierHash = HashString(".material_shader"),
+    registry.RegisterAssetType<data::MaterialShaderData>({
+        .extensionHash = HashString(".material_shader"),
         .initialCapacity = 32,
         .builder = &shaderBuilder
     });
 
-    data::MaterialShader shader = registry.Load<data::MaterialShader>("material_shaders/material_shader.material_shader");
-    EXPECT_NE(shader, data::MaterialShader::Invalid);
+    constexpr const std::string_view shaderPath = "material_shaders/material_shader.material_shader";
+    asset::AssetIdentifier shaderId = asset::MakeAssetIdentifier(shaderPath);
+    registry.Load(shaderPath);
 
-    const data::MaterialShaderData* shaderData = registry.Resolve<data::MaterialShader, data::MaterialShaderData>(shader);
+    const data::MaterialShaderData* shaderData = registry.Resolve<data::MaterialShaderData>(shaderId);
     EXPECT_EQ(shaderData->rasterPasses.size(), 1);
     EXPECT_EQ(shaderData->parameters.size(), 2);
     EXPECT_NE(shaderData->uniformBufferSize, 0);
@@ -51,12 +52,13 @@ TEST(DataBuildTests_MaterialShader, IntegrationTest_MaterialShader)
     EXPECT_NE(pass.pipeline, rhi::RasterPipeline::Invalid);
     EXPECT_EQ(pass.renderPass, data::MaterialRenderPass::Forward);
     EXPECT_EQ(pass.type, data::RasterPassType::Vertex);
-
+    
+    asset::AssetIdentifier textureId = asset::MakeAssetIdentifier("textures/texture.texture");
     const data::MaterialShaderParameter& param0 = shaderData->parameters[0];
     EXPECT_EQ(param0.type, data::MaterialShaderParameterType::Texture);
     EXPECT_EQ(param0.name, "ColorTexture");
     EXPECT_EQ(param0.pTexture.type, data::TextureType::Texture2D);
-    EXPECT_NE(param0.pTexture.defaultValue, data::Texture::Invalid);
+    EXPECT_EQ(param0.pTexture.defaultValue, textureId);
 
     const data::MaterialShaderParameter& param1 = shaderData->parameters[1];
     EXPECT_EQ(param1.type, data::MaterialShaderParameterType::FloatVec);

@@ -38,9 +38,11 @@ namespace rn
         {}
     };
 
-    using String  = std::basic_string<char, std::char_traits<char>, StringAllocatorSTL<char>>;
-    using WString = std::basic_string<wchar_t, std::char_traits<wchar_t>, StringAllocatorSTL<wchar_t>>;
-    using StringHash = size_t;
+    using String        = std::basic_string<char, std::char_traits<char>, StringAllocatorSTL<char>>;
+    using ScopedString  = std::basic_string<char, std::char_traits<char>, ScopedAllocatorSTL<char>>;
+    using WString       = std::basic_string<wchar_t, std::char_traits<wchar_t>, StringAllocatorSTL<wchar_t>>;
+    using ScopedWString = std::basic_string<wchar_t, std::char_traits<wchar_t>, ScopedAllocatorSTL<wchar_t>>;
+    using StringHash    = size_t;
 
     inline String PathToString(const std::filesystem::path& p)
     {
@@ -51,9 +53,10 @@ namespace rn
     StringHash HashString(const wchar_t* ptr, size_t length);
     StringHash HashString(const char* ptr);
     StringHash HashString(const wchar_t* ptr);
-    StringHash HashString(const String& str);
-    StringHash HashString(const WString& str);
     StringHash HashString(const std::string_view& str);
+
+    template <typename Type, typename Traits, typename Alloc>
+    StringHash HashString(const std::basic_string<Type, Traits, Alloc>& str) { return HashString(str.data(), str.length()); }
 
     template <size_t N> StringHash HashString(const char(&ptr)[N]) { return HashString(ptr, N); }
     template <size_t N> StringHash HashString(const wchar_t(&ptr)[N]) { return HashString(ptr, N); }

@@ -1,16 +1,29 @@
 #pragma once
 
 #include "scene/scene.hpp"
+#include "common/memory/string.hpp"
 #include <type_traits>
 
 namespace rn::scene
 {
-    template <typename... Args>
-    constexpr uint64_t MergeTypeIDs()
+    using FnRegisterArchetype = void(*)(Scene&);
+    std::vector<FnRegisterArchetype>& ArchetypeRegistrationFunctions();
+
+    template <typename... Cs>
+    uint64_t RegisterEntityArchetype()
     {
-        return (... ^ TypeID<Args>());
+        std::vector<FnRegisterArchetype>& archetypes = ArchetypeRegistrationFunctions();
+        ArchetypeRegistrationFunctions().push_back([](Scene& scene)
+        {
+            scene.RegisterArchetype<Cs...>();
+        });
+
+        return (... ^ TypeID<Cs>());
     }
 
+    template <typename... Cs>
+    const uint64_t _EntityArchetype<Cs...>::ID = RegisterEntityArchetype<Cs...>();
+    
     template <typename T>
     void ResolvePtrAtIndex(Vector<T>& vec, uint64_t typeID, size_t index, void*& outPtr)
     {
@@ -29,92 +42,59 @@ namespace rn::scene
         }
     }
 
-    template <typename... Components>
-    size_t EntityBuilder<Components...>::BuildEntity(Entity entity)
+    template <typename T>
+    void ComponentStorage<T>::AddComponent()
     {
-        size_t index = std::numeric_limits<size_t>::max();
-        auto it = _entityToIndex.find(entity);
-        if (it == _entityToIndex.end())
-        {
-            index = std::get<0>(_storage).size();
-            _entityToIndex[entity] = index;
-
-            (std::get<Vector<Components>>(_storage).emplace_back(), ...);
-
-        }
-
-        return index;
-    };
-
-    template <typename... Components>
-    size_t EntityBuilder<Components...>::EntityToIndex(Entity entity) const
-    {
-        return _entityToIndex.at(entity);
+        _storage.emplace_back();
     }
 
-    template <typename... Components>
-    void* EntityBuilder<Components...>::Component(size_t entityIdx, uint64_t typeID)
+    template <typename T>
+    void ComponentStorage<T>::RemoveComponent(size_t idx)
     {
-        void* ptr = nullptr;
-        (ResolvePtrAtIndex(std::get<Vector<Components>>(_storage), typeID, entityIdx, ptr), ...);
-
-        return ptr;
+        _storage.erase(_storage.begin() + idx);
     }
 
-    template <typename... Components>
-    const void* EntityBuilder<Components...>::Component(size_t entityIdx, uint64_t typeID) const
+    template <typename T>
+    void* ComponentStorage<T>::Component(size_t idx)
     {
-        const void* ptr = nullptr;
-        (ResolveConstPtrAtIndex(std::get<Vector<Components>>(_storage), typeID, entityIdx, ptr), ...);
-
-        return ptr;
+        return &_storage[idx];
     }
 
-    template <typename... Components>
-    void* EntityBuilder<Components...>::ComponentArray(uint64_t typeID)
+    template <typename T>
+    const void* ComponentStorage<T>::Component(size_t idx) const
     {
-        return Component(0, typeID);
+        return &_storage[idx];
     }
 
-    template <typename... Components>
-    const void* EntityBuilder<Components...>::ComponentArray(uint64_t typeID) const
+    template <typename T>
+    size_t ComponentStorage<T>::Count() const
     {
-        return Component(0, typeID);
+        return _storage.size();
     }
 
-    template <typename... Components>
-    size_t EntityBuilder<Components...>::EntityCount() const
-    {
-        return std::get<0>(_storage).size();
-    }
 
     namespace
     {
         template <typename C>
-        void SetComponent(EntityBuilderBase* builder, size_t entityIdx, C&& component)
+        void SetComponent(EntityBuilder* builder, size_t entityIdx, C&& component)
         {
-            void* ptr = builder->Component(entityIdx, TypeID<C>());
-            std::memcpy(ptr, &component, sizeof(C));
+            Span<uint8_t> ptr = builder->Component(entityIdx, TypeID<C>());
+            std::memcpy(ptr.data(), &component, sizeof(C));
         }
     }
 
-    template <typename... Args>
-    Entity Scene::AddEntity(Args&&... args)
+    template <typename... Cs>
+    Entity Scene::AddEntity(std::string_view identifier, Cs&&... args)
     {
-        constexpr uint64_t archetypeID = MergeTypeIDs<Args...>();
+        uint64_t archetypeID = EntityArchetype<Cs...>::ID;
         auto it = _archetypes.find(archetypeID);
-        if (it == _archetypes.end())
-        {
-            // I'm not really a fan of lazy initialization like this, but I guess it's ok
-            it = MakeArchetype<Args...>();
-        }
         RN_ASSERT(it != _archetypes.end());
 
         if (it != _archetypes.end())
         {
-            Entity e = AssembleHandle<Entity>(_currentEntityID++, 0);
+            Entity e = Entity(HashString(identifier));
             size_t index = it->second.builder->BuildEntity(e);
-            (SetComponent<Args>(it->second.builder, index, std::forward<Args>(args)), ...);
+            (SetComponent<Cs>(it->second.builder, index, std::forward<Cs>(args)), ...);
 
             _entityToArchetype.try_emplace(e, archetypeID);
             return e;
@@ -127,34 +107,30 @@ namespace rn::scene
     std::tuple<Cs const&...> Scene::Components(Entity e) const
     {
         uint64_t archetypeID = _entityToArchetype.at(e);
-        const EntityBuilderBase* builder = _archetypes.at(archetypeID).builder;
+        const EntityBuilder* builder = _archetypes.at(archetypeID).builder;
 
         size_t entityIdx = builder->EntityToIndex(e);
-        return { *static_cast<const Cs*>(builder->Component(entityIdx, TypeID<Cs>()))... };
+        return { *reinterpret_cast<const Cs*>(builder->Component(entityIdx, TypeID<Cs>()).data())... };
     }
 
     template <typename... Cs>
     std::tuple<Cs&...> Scene::Components(Entity e)
     {
         uint64_t archetypeID = _entityToArchetype.at(e);
-        EntityBuilderBase* builder = _archetypes.at(archetypeID).builder;
+        EntityBuilder* builder = _archetypes.at(archetypeID).builder;
 
         size_t entityIdx = builder->EntityToIndex(e);
-        return { *static_cast<Cs*>(builder->Component(entityIdx, TypeID<Cs>()))... };
+        return { *reinterpret_cast<Cs*>(builder->Component(entityIdx, TypeID<Cs>()).data())... };
     }
 
     template <typename... Cs>
-    QueryResult<Cs...> Scene::Query()
+    QueryResult<Cs...> Scene::Query(MemoryScope& scope)
     {
-        constexpr uint64_t archetypeID = MergeTypeIDs<Cs...>();
+        uint64_t archetypeID = EntityArchetype<Cs...>::ID;
         auto it = _archetypes.find(archetypeID);
-        if (it == _archetypes.end())
-        {
-            it = MakeArchetype<Cs...>();
-        }
+        RN_ASSERT(it != _archetypes.end());
 
-        MemoryScope SCOPE;
-        ScopedVector<EntityBuilderBase*> builders;
+        ScopedVector<EntityBuilder*> builders;
         builders.reserve(it->second.superArchetypes.size());
 
         for (uint64_t archetypeID : it->second.superArchetypes)
@@ -163,70 +139,43 @@ namespace rn::scene
         }
 
         size_t entityCount = 0;
-        for (const EntityBuilderBase* builder : builders)
+        for (const EntityBuilder* builder : builders)
         {
             entityCount += builder->EntityCount();
         }
 
         QueryResult<Cs...> result = { 
-            _tempAllocator.AllocatePODArray<std::tuple<Cs&...>>(entityCount), entityCount
+            ScopedNewArrayNoInit<std::tuple<Cs&...>>(scope, entityCount), entityCount
         };
 
         size_t offset = 0;
-        for (EntityBuilderBase* builder : builders)
+        for (EntityBuilder* builder : builders)
         {
             size_t countInBuilder = builder->EntityCount();
             for (size_t i = 0; i < countInBuilder; ++i, ++offset)
             {
-                new (&result[offset]) std::tuple<Cs&...>({*static_cast<Cs*>(builder->Component(i, TypeID<Cs>()))...});
+                new (&result[offset]) std::tuple<Cs&...>({*reinterpret_cast<Cs*>(builder->Component(i, TypeID<Cs>()).data())...});
             }
         }
 
         return result;
     }
 
-    template <typename... Args>
-    Scene::ArchetypeMap::iterator Scene::MakeArchetype()
+    template <typename C>
+    ComponentDesc MakeComponentDesc()
     {
-        constexpr uint64_t archetypeID = MergeTypeIDs<Args...>();
-        auto it = _archetypes.find(archetypeID);
-        RN_ASSERT(it == _archetypes.end());
-
-        if (it == _archetypes.end())
-        {
-            using Builder = meta::InstantiateSortedT<EntityBuilder, std::remove_cvref_t<Args>...>;
-
-            ArchetypeDesc desc = {
-                .builder = TrackedNew<Builder>(MemoryCategory::Scene),
-                .componentIDs = { TypeID<Args>()... },
-                .superArchetypes = { archetypeID }
-            };
-            std::sort(desc.componentIDs.begin(), desc.componentIDs.end());
-
-            for (auto& p : _archetypes)
+        return {
+            .buildStorage = []() -> ComponentStorageBase*
             {
-                MemoryScope SCOPE;
-                ScopedVector<uint64_t> intersection;
-                intersection.reserve(desc.componentIDs.size());
+                return TrackedNew<ComponentStorage<C>>(MemoryCategory::Scene);
+            },
+            .typeID = TypeID<C>()
+        };
+    }
 
-                std::set_intersection(desc.componentIDs.begin(), desc.componentIDs.end(),
-                    p.second.componentIDs.begin(), p.second.componentIDs.end(),
-                    std::back_inserter(intersection));
-                    
-                if (intersection.size() == desc.componentIDs.size())
-                {
-                    desc.superArchetypes.emplace_back(p.first);
-                }
-                else if (intersection.size() == p.second.componentIDs.size())
-                {
-                    p.second.superArchetypes.emplace_back(archetypeID);
-                }
-                
-            }
-
-            it = _archetypes.try_emplace(archetypeID, std::move(desc)).first;
-        }
-
-        return it;
+    template <typename... Cs>
+    void Scene::RegisterArchetype()
+    {
+        return RegisterArchetype({ MakeComponentDesc<Cs>()... });
     }
 }

@@ -15,20 +15,24 @@ namespace rn::asset
 
     RN_MEMORY_CATEGORY(Asset);
 
-    enum class Asset : uint64_t
+    enum class AssetIdentifier : uint64_t
     {
-        Invalid = 0xFFFFFFFF
+        Invalid = 0
     };
+    inline bool IsValid(AssetIdentifier a) { return a != AssetIdentifier::Invalid; }
+
+    void            SanitizeAssetPath(Span<char> assetPath);
+    AssetIdentifier MakeAssetIdentifier(std::string_view assetPath);
 
     struct AssetBuildDesc
     {
         const std::string_view identifier;
         Span<const uint8_t> data;
-        Span<const Asset> dependencies;
+        Span<const AssetIdentifier> dependencies;
         const Registry* registry;
     };
 
-    template <typename HandleType, typename DataType>
+    template <typename DataType>
     class Builder
     {
     public:
@@ -38,11 +42,11 @@ namespace rn::asset
         virtual void        Finalize() = 0;
     };
 
-    template <typename HandleType, typename DataType>
+    template <typename DataType>
     struct AssetTypeDesc
     {
-        StringHash identifierHash;
+        StringHash extensionHash;
         size_t initialCapacity;
-        Builder<HandleType, DataType>* builder;
+        Builder<DataType>* builder;
     };
 }

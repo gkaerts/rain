@@ -29,14 +29,7 @@ namespace rn::asset
 
         void SanitizePath(String& path, bool maintainTrailingSlash = false)
         {
-            // Forward slashes only
-            std::replace(path.begin(), path.end(), '\\', '/');
-
-            // All lower case
-            std::transform(path.begin(), path.end(), path.begin(), [](char c)
-            {
-                return std::tolower(c);
-            });
+            SanitizeAssetPath(path);
 
             // No trailing slashes
             if (!maintainTrailingSlash && path.ends_with("/"))
@@ -77,16 +70,16 @@ namespace rn::asset
 
     Registry::~Registry()
     {
-        for (const auto& it : _extensionHashToBank)
+        for (const auto& it : _typeIDToBank)
         {
             TrackedDelete(it.second);
         }
 
+        _typeIDToBank.clear();
         _extensionHashToBank.clear();
-        _handleIDToBank.clear();
     }
 
-    Asset Registry::LoadInternal(std::string_view identifier, LoadFlags flags)
+    void Registry::Load(std::string_view identifier, LoadFlags flags)
     {
         MemoryScope SCOPE;
         String path = { identifier.data(), identifier.size() };
@@ -103,11 +96,11 @@ namespace rn::asset
         // Did you forget to register this asset type?
         RN_ASSERT(bankIt != _extensionHashToBank.end());
 
-        StringHash identifierHash = HashString(path);
+        AssetIdentifier assetId = MakeAssetIdentifier(path);
         BankBase* bank = bankIt->second;
 
         bool doReload = TestFlag(flags, LoadFlags::Reload);
-        std::pair<bool, Asset> handle = bank->FindOrAllocateHandle(identifierHash);
+        std::pair<bool, BankedAsset> handle = bank->FindOrAllocateHandle(assetId);
         if (handle.first || (!handle.first && doReload))
         {
             // We're either loading a new asset (i.e. it didn't exist before) or we're forcibly reloading an asset
@@ -133,21 +126,21 @@ namespace rn::asset
 
                 struct HandleAssetLoadTask : enki::ITaskSet
                 {
-                    Registry* registry = nullptr;
-                    BankBase* bank = nullptr;
-                    const schema::Asset* asset = nullptr;
-                    Asset destHandle = Asset::Invalid;
-                    std::string_view identifier;
-                    String path;
+                    Registry*               registry = nullptr;
+                    BankBase*               bank = nullptr;
+                    const schema::Asset*    asset = nullptr;
+                    BankedAsset             destHandle = BankedAsset::Invalid;
+                    std::string_view        identifier;
+                    String                  path;
 
-                    Span<Asset> dependencies;
-                    bool doReschedule = false;
+                    Span<AssetIdentifier>   dependencies;
+                    bool                    doReschedule = false;
 
                     void ExecuteRange(enki::TaskSetPartition range_, uint32_t threadnum_) override 
                     {
                         bool allDependenciesResident = true;
                         uint32_t dependencyIdx = 0;
-                        for (Asset dependency : dependencies)
+                        for (AssetIdentifier dependency : dependencies)
                         {
                             std::string_view ext = PathExtension(asset->references[dependencyIdx]);
                             StringHash extHash = HashString(ext);
@@ -156,7 +149,8 @@ namespace rn::asset
                             RN_ASSERT(bankIt != registry->_extensionHashToBank.end());
 
                             BankBase* dependencyBank = bankIt->second;
-                            if (dependencyBank->AssetResidency(dependency) != Residency::Resident)
+                            BankedAsset handle = dependencyBank->FindHandle(dependency);
+                            if (dependencyBank->AssetResidency(handle) != Residency::Resident)
                             {
                                 LogInfo(LogCategory::Asset, "Asset \"{}\" is waiting on dependency {} ({})", 
                                     path.c_str(), 
@@ -187,22 +181,22 @@ namespace rn::asset
 
                 struct ResolveAssetDependencyTask : enki::ITaskSet
                 {
-                    Registry* registry;
-                    String referencePath;
-                    LoadFlags flags;
-                    Asset* destHandle;
+                    Registry*   registry = nullptr;
+                    String      referencePath;
+                    LoadFlags   flags = LoadFlags::None;
 
                     void ExecuteRange(enki::TaskSetPartition range_, uint32_t threadnum_) override
                     {
-                        *destHandle = registry->LoadInternal(referencePath, flags);
+                        registry->Load(referencePath, flags);
                     }
                 };
 
                 size_t referenceCount = asset.references.size();
-                ScopedVector<enki::Dependency> taskDependencies(referenceCount);
-                ScopedVector<ResolveAssetDependencyTask> referenceTasks(referenceCount);
-                ScopedVector<Asset> dependentHandles(referenceCount);
-                ScopedVector<String> sanitizedReferenceStrings(referenceCount);
+
+                ScopedVector<enki::Dependency>              taskDependencies(referenceCount);
+                ScopedVector<ResolveAssetDependencyTask>    referenceTasks(referenceCount);
+                ScopedVector<AssetIdentifier>               dependentHandles(referenceCount);
+                ScopedVector<String>                        sanitizedReferenceStrings(referenceCount);
 
                 HandleAssetLoadTask handleLoadTask;
                 handleLoadTask.registry = this;
@@ -220,13 +214,13 @@ namespace rn::asset
                     {
                         String& referencePath = sanitizedReferenceStrings[dependencyIdx];
                         referencePath = { reference.data(), reference.length() };
-                        SanitizePath(referencePath);
+                        SanitizeAssetPath(referencePath);
+                        dependentHandles[dependencyIdx] = MakeAssetIdentifier(referencePath);
 
                         ResolveAssetDependencyTask& dependencyTask = referenceTasks[dependencyIdx];
                         dependencyTask.registry = this;
                         dependencyTask.referencePath = referencePath;
                         dependencyTask.flags = flags;
-                        dependencyTask.destHandle = &dependentHandles[dependencyIdx];
 
                         handleLoadTask.SetDependency(taskDependencies[dependencyIdx], &dependencyTask);
                         dependencyIdx++;
@@ -253,11 +247,16 @@ namespace rn::asset
             }
             else
             {
-                ScopedVector<Asset> dependencies;
+                ScopedVector<AssetIdentifier> dependencies;
                 dependencies.reserve(asset.references.size());
                 for (std::string_view reference : asset.references)
                 {
-                    dependencies.push_back(LoadInternal(reference, flags));
+                    dependencies.push_back(MakeAssetIdentifier(reference));
+
+                    MemoryScope SCOPE;
+                    ScopedString str(reference.data(), reference.length());
+                    SanitizeAssetPath(str);
+                    Load(str, flags);
                 }
                 
 
@@ -269,7 +268,5 @@ namespace rn::asset
                 });
             }
         }
-
-        return handle.second;
     }
 }

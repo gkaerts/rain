@@ -8,6 +8,7 @@
 #include "rn/materialParamUintVec.h"
 #include "rn/materialParamIntVec.h"
 #include "rn/materialParamTexture.h"
+#include "rn/texture.h"
 #pragma warning(pop)
 
 #include "build.hpp"
@@ -22,14 +23,21 @@ namespace rn
     const PrimSchema MATERIAL_PRIM_SCHEMA = {
         .requiredProperties = {
             { .name = "rn:shader", .fnIsValidPropertyValue = IsNonEmptyAssetPath },
-            { .name = "rn:parameters" }
+            { 
+                .name = "rn:parameters", 
+                .fnIsValidRelationship = RelatedPrimIsA<
+                    pxr::RnMaterialParamFloatVec,
+                    pxr::RnMaterialParamUintVec,
+                    pxr::RnMaterialParamIntVec,
+                    pxr::RnMaterialParamTexture> 
+            }
         }
     };
 
     const PrimSchema TEXTURE_PARAM_PRIM_SCHEMA = {
         .requiredProperties = {
             { .name = "dimension" },
-            { .name = "value" }
+            { .name = "value", .fnIsValidRelationship = RelatedPrimIsA<pxr::RnTexture> }
         }
     }; 
 

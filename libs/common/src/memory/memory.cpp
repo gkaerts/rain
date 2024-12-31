@@ -169,12 +169,16 @@ namespace rn
         };
 
         thread_local ScopedAllocatorBacking THREAD_LOCAL_SCOPED_ALLOCATOR_BACKING;
+        thread_local MemoryScope* THREAD_LOCAL_CURRENT_MEMORY_SCOPE;
     }
 
     MemoryScope::MemoryScope()
         : offset(CurrentScopeOffset())
         , lastDeleter(nullptr)
-    {};
+        , prevScope(THREAD_LOCAL_CURRENT_MEMORY_SCOPE)
+    {
+        THREAD_LOCAL_CURRENT_MEMORY_SCOPE = this;
+    };
 
     MemoryScope::~MemoryScope()
     {
@@ -191,6 +195,20 @@ namespace rn
 
         lastDeleter = nullptr;
         ResetScope(offset);
+
+        THREAD_LOCAL_CURRENT_MEMORY_SCOPE = prevScope;
+    }
+
+    void MemoryScope::PushDeleter(void* ptr, void(*deleteFn)(void*))
+    {
+        RN_ASSERT(THREAD_LOCAL_CURRENT_MEMORY_SCOPE == this);
+        
+        MemoryScope::Deleter* d = new (ScopedAlloc(sizeof(Deleter), alignof(Deleter))) Deleter();
+        d->prevDeleter = lastDeleter;
+        d->fn = deleteFn;
+        d->dataPtr = ptr;
+
+        lastDeleter = d;
     }
 
     void InitializeScopedAllocationForThread(size_t backingSize)
@@ -200,6 +218,8 @@ namespace rn
         THREAD_LOCAL_SCOPED_ALLOCATOR_BACKING.ptr = (char*)TrackedAlloc(MemoryCategory::Default, backingSize, 16);
         THREAD_LOCAL_SCOPED_ALLOCATOR_BACKING.offset = 0;
         THREAD_LOCAL_SCOPED_ALLOCATOR_BACKING.capacity = backingSize;
+
+        THREAD_LOCAL_CURRENT_MEMORY_SCOPE = nullptr;
     }
 
     void TeardownScopedAllocationForThread()
@@ -210,6 +230,7 @@ namespace rn
         }
 
         THREAD_LOCAL_SCOPED_ALLOCATOR_BACKING = {};
+        THREAD_LOCAL_CURRENT_MEMORY_SCOPE = nullptr;
     }
 
     ptrdiff_t CurrentScopeOffset()

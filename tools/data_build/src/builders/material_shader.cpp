@@ -172,8 +172,8 @@ namespace rn
     const PrimSchema MATERIAL_SHADER_PRIM_SCHEMA = {
         .requiredProperties = {
             { .name = "source", .fnIsValidPropertyValue = IsNonEmptyAssetPath },
-            { .name = "renderPasses" },
-            { .name = "paramGroups" }
+            { .name = "renderPasses", .fnIsValidRelationship = RelatedPrimIsA<pxr::RnVertexRasterPass, pxr::RnMeshRasterPass, pxr::RnRayTracingPass> },
+            { .name = "paramGroups", .fnIsValidRelationship = RelatedPrimIsA<pxr::RnMaterialShaderParamGroup> }
         },
 
         .optionalProperties = {
@@ -219,7 +219,14 @@ namespace rn
 
     const PrimSchema PARAMETER_GROUP_PRIM_SCHEMA = {
         .requiredProperties = {
-            { .name = "parameters" }
+            { 
+                .name = "parameters", 
+                .fnIsValidRelationship = RelatedPrimIsA<
+                    pxr::RnMaterialShaderParamFloatVec,
+                    pxr::RnMaterialShaderParamUintVec,
+                    pxr::RnMaterialShaderParamIntVec,
+                    pxr::RnMaterialShaderParamTexture>  
+            }
         }
     };
 

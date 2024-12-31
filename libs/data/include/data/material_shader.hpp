@@ -23,9 +23,6 @@ namespace rn::data
 {
     RN_MEMORY_CATEGORY(Data)
 
-    RN_HANDLE(Texture);
-    RN_DEFINE_HANDLE(MaterialShader, 0x42)
-
     // See texture.hpp
     enum class TextureType : uint32_t;
 
@@ -63,8 +60,8 @@ namespace rn::data
     
     struct TextureMaterialShaderParam
     {
-        TextureType type;
-        Texture defaultValue;
+        TextureType             type;
+        asset::AssetIdentifier  defaultValue;
     };
 
     struct MaterialShaderParameter
@@ -115,7 +112,7 @@ namespace rn::data
         uint32_t                                uniformBufferSize;
     };
 
-    class MaterialShaderBuilder : public asset::Builder<MaterialShader, MaterialShaderData>
+    class MaterialShaderBuilder : public asset::Builder<MaterialShaderData>
     {
     public:
 

@@ -2,13 +2,9 @@ import "common.lua"
 
 namespace "rn.scene.schema"
 
-Blob = struct {
-    field(span(uint8),"data")
-}
-
 Component = struct {
     field(uint64, "typeID"),
-    field(Blob, "data")
+    field(span(uint8),"data")
 }
 
 Entity = struct {
@@ -19,6 +15,4 @@ Entity = struct {
 
 Scene = struct {
     field(span(Entity), "entities"),
-    field(span(Blob), "properties"),
-    field(span(Blob), "additionalData")
 }

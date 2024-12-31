@@ -6,11 +6,13 @@ Schema.TypeLayout = {
     Enum =      2,
     Span =      3,
     String =    4,
+    Array =     5,
 }
 
 Schema.SpanByteSize = 16
 Schema.StringByteSize = 16
 Schema.EnumByteSize = 4
+Schema.Enum64ByteSize = 8
 
 Schema.PrimitiveType = {
     Uint8 =     1,
@@ -104,7 +106,7 @@ local validateValueAgainstSchema = function(schemaType, value, recursion)
             recursion(f.type, fieldValue)
         end
 
-    elseif schemaType.layout == Schema.TypeLayout.Span then
+    elseif schemaType.layout == Schema.TypeLayout.Span or schemaType.layout == Schema.TypeLayout.Array then
         assert(type(value) == "table", "Expected value type of 'table', but got '" .. type(value) .. "'")
 
         for _, v in ipairs(value) do
@@ -203,6 +205,22 @@ Schema.makeEnvAPI = function(env)
         }
     end
 
+    local _array = function(_env, spannedType, size)
+        assert(spannedType, "Invalid type provided to array")
+        assert(size and size > 0, "Invalid size provided to array")
+        assert( spannedType.layout == Schema.TypeLayout.Struct or
+                spannedType.layout == Schema.TypeLayout.Enum or
+                spannedType.layout == Schema.TypeLayout.Primitive or
+                spannedType.layout == Schema.TypeLayout.String,
+                "Array type needs to be a struct, enum, string or primitive");
+        return {
+            layout = Schema.TypeLayout.Array,
+            sizeInBytes = size * spannedType.sizeInBytes,
+            elementCount = size,
+            spannedType = spannedType
+        }
+    end
+
     local _value = function(_env, name, val)
         assert(name and string.len(name) > 0, "Invalid name provided for enum value")
         assert(not val or type(val) == "number", "Enum value needs to be a number")
@@ -218,7 +236,22 @@ Schema.makeEnvAPI = function(env)
             layout = Schema.TypeLayout.Enum,
             sizeInBytes = Schema.EnumByteSize,
             elements = values,
-            namespace = env._currentNamespace
+            namespace = env._currentNamespace,
+            underlyingType = Schema.PrimitiveType.Uint32
+        }
+
+        table.insert(_env._orderedTypes, ret)
+        return ret
+    end
+
+    local _enum_64 = function(_env, values)
+        assert(values, "Invalid value table provided to enum")
+        local ret = {
+            layout = Schema.TypeLayout.Enum,
+            sizeInBytes = Schema.Enum64ByteSize,
+            elements = values,
+            namespace = env._currentNamespace,
+            underlyingType = Schema.PrimitiveType.Uint64
         }
 
         table.insert(_env._orderedTypes, ret)
@@ -230,6 +263,20 @@ Schema.makeEnvAPI = function(env)
             layout = Schema.TypeLayout.Enum,
             sizeInBytes = Schema.EnumByteSize,
             namespace = env._currentNamespace,
+            underlyingType = Schema.PrimitiveType.Uint32,
+            external = true
+        }
+
+        table.insert(_env._orderedTypes, ret)
+        return ret
+    end
+
+    local _fwd_enum_64 = function(_env)
+        local ret = {
+            layout = Schema.TypeLayout.Enum,
+            sizeInBytes = Schema.Enum64ByteSize,
+            namespace = env._currentNamespace,
+            underlyingType = Schema.PrimitiveType.Uint64,
             external = true
         }
 
@@ -238,6 +285,7 @@ Schema.makeEnvAPI = function(env)
     end
 
     local _field = function(_env, fieldType, name)
+        assert(type(name) == "string", "Field name needs to be a string")
         assert(string.len(name) > 0, "Invalid name provided for enum value")
         assert(fieldType, "Invalid type provided to struct field")
         return {
@@ -314,8 +362,11 @@ Schema.makeEnvAPI = function(env)
     env.namespace =     function(str)                   return _namespace(env, str) end
     env.value =         function(name, val)             return _value(env, name, val) end
     env.span =          function(spannedType)           return _span(env, spannedType) end
+    env.array =         function(spannedType, size)     return _array(env, spannedType, size) end
     env.enum =          function(values)                return _enum(env, values) end
+    env.enum_64 =       function(values)                return _enum_64(env, values) end
     env.fwd_enum =      function()                      return _fwd_enum(env) end
+    env.fwd_enum_64 =   function()                      return _fwd_enum_64(env) end
     env.field =         function(fieldType, name)       return _field(env, fieldType, name) end
     env.struct =        function(fields)                return _struct(env, fields) end
     env.fwd_struct =    function(fields)                return _fwd_struct(env, fields) end

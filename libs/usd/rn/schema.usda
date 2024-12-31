@@ -7,7 +7,9 @@
         # to schema types from 'usd'. If you were adding sub-classes of
         # UsdGeom schema types, you would use usdGeom/schema.usda instead.
         @usd/schema.usda@,
-        @usdShade/schema.usda@
+        @usdShade/schema.usda@,
+        @usdLux/schema.usda@,
+        @usdGeom/schema.usda@
     ]
 )
 
@@ -19,6 +21,8 @@ over "GLOBAL" (
     }
 ) { }
 
+
+# ASSETS
 # Texture assets
 class Texture "Texture" (
     inherits = </Typed>
@@ -209,8 +213,8 @@ class "RainMaterialAPI" (
     doc = """API for adding Rain-specific properties to materials"""
     customData = {
         token apiSchemaType = "singleApply"
-        token[] apiSchemaAutoApplyTo = ["UsdShadeMaterial"]
-        token[] apiSchemaCanOnlyApplyTo = ["UsdShadeMaterial"]
+        token[] apiSchemaAutoApplyTo = ["Material"]
+        token[] apiSchemaCanOnlyApplyTo = ["Material"]
     }
 ) {
     uniform asset rn:shader (
@@ -221,6 +225,7 @@ class "RainMaterialAPI" (
         customData = { string apiName = "parameters" }
         doc = """List of parameters for this material"""
     )
+
 }
 
 class MaterialParamFloatVec "MaterialParamFloatVec" (
@@ -265,5 +270,58 @@ class MaterialParamTexture "MaterialParamTexture" (
 ) {
     rel value (
         doc = """The default texture asset for the parameter"""
+    )
+}
+
+# Components
+class "OmniLightComponentAPI" (
+    inherits = </APISchemaBase>
+    doc = """Omni-light entity component"""
+    customData = {
+        token apiSchemaType = "singleApply"
+        token[] apiSchemaCanOnlyApplyTo = ["Xform"]
+    }
+) {
+    rel omnilight:source (
+        customData = { string apiName = "source" }
+        doc = """Source UsdSphereLight for this omni-light"""
+    )
+
+    uniform bool omnilight:castShadow (
+        customData = { string apiName = "castShadow" }
+        doc = """Enable or disable shadow casting for this light"""
+    )
+
+    uniform float omnilight:boundingRadius (
+        customData = { string apiName = "boundingRadius" }
+        doc = """Bounding radius where the light should not have any influence anymore"""
+    )
+}
+
+class "RenderMeshComponentAPI" (
+    inherits = </APISchemaBase>
+    doc = """Render mesh entity component"""
+    customData = {
+        token apiSchemaType = "singleApply"
+        token[] apiSchemaCanOnlyApplyTo = ["Xform"]
+    }
+) {
+    rel rendermesh:geometry (
+        customData = { string apiName = "geometry" }
+        doc = """Source geometry asset for this component"""
+    )
+}
+
+class "RenderMaterialListComponentAPI" (
+    inherits = </APISchemaBase>
+    doc = """Render Material List entity component"""
+    customData = {
+        token apiSchemaType = "singleApply"
+        token[] apiSchemaCanOnlyApplyTo = ["Xform"]
+    }
+) {
+    rel rendermateriallist:materials (
+        customData = { string apiName = "materials" }
+        doc = """Material assets for this component"""
     )
 }

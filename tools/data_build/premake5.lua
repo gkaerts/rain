@@ -23,13 +23,17 @@ project "data_build"
 
     files {
         "src/**.hpp",
-        "src/**.cpp"
+        "src/**.cpp",
+        PROJECT_ROOT .. "/build/codegen/rnRender/**.hpp",
+        PROJECT_ROOT .. "/build/codegen/rnRender/**.cpp",
     }
 
     includedirs(RN_COMMON_INCLUDES)
     includedirs(RN_RHI_INCLUDES)
     includedirs(RN_ASSET_INCLUDES)
     includedirs(RN_DATA_INCLUDES)
+    includedirs(RN_RENDER_INCLUDES)
+    includedirs(RN_SCENE_INCLUDES)
     includedirs(RN_BASIS_INCLUDES)
     includedirs(RN_DXC_INCLUDES)
     includedirs(RN_MESHOPTIMIZER_INCLUDES)
@@ -41,6 +45,7 @@ project "data_build"
     links { "usd_ms" }
 
     includedirs{
+        "src",
         "%{wks.location}/../../contrib/submodules/tomlplusplus/include",
         GENERATED_FILE_PATH .. "/usd_plugins/"
     }
@@ -52,7 +57,7 @@ project "data_build"
     targetdir "%{wks.location}/%{cfg.buildcfg}/"
 
     dependson { "dxc", "usd" }
-    links { "rnCommon", "rnAsset", "rnData", "dxcompiler", "meshoptimizer", "mikktspace", "usd_rn" }
+    links { "rnCommon", "rnAsset", "rnData", "rnScene", "dxcompiler", "meshoptimizer", "mikktspace", "usd_rn" }
 
 if BUILD_PROPERTIES.IncludeTestsInBuild then
     include "test"

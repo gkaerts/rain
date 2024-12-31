@@ -34,17 +34,7 @@ namespace rn
     {
         return HashString(ptr, wcslen(ptr));
     }
-
-    StringHash HashString(const String& str)
-    {
-        return HashString(str.data(), str.length());
-    }
-
-    StringHash HashString(const WString& str)
-    {
-        return HashString(str.data(), str.length());
-    }
-
+    
     StringHash HashString(const std::string_view& str)
     {
         return HashString(str.data(), str.length());
