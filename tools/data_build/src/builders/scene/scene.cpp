@@ -36,7 +36,7 @@ namespace rn
             return handlers;
         }  
 
-        pxr::GfMatrix4d BuildGlobalTransform(std::string_view file, const pxr::UsdPrim& prim, const pxr::GfMatrix4d& parentXform)
+        pxr::GfMatrix4d BuildGlobalTransform(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, const pxr::GfMatrix4d& parentXform)
         {
             pxr::UsdGeomXform xform(prim);
             pxr::GfMatrix4d xformMatrix;
@@ -45,14 +45,14 @@ namespace rn
                 bool resetStack = false;
                 if (!xform.GetLocalTransformation(&xformMatrix, &resetStack))
                 {
-                    BuildError(file) << "Failed to extract local transform for entity prim." << std::endl;
+                    BuildError(ctxt) << "Failed to extract local transform for entity prim." << std::endl;
                 }
             }
 
             return parentXform * xformMatrix;
         }
 
-        bool BuildTransformComponent(std::string_view file, const pxr::UsdPrim& prim, const pxr::GfMatrix4d& globalXform, BumpAllocator& blobAllocator, Vector<scene::schema::Component>& outComponents)
+        bool BuildTransformComponent(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, const pxr::GfMatrix4d& globalXform, BumpAllocator& blobAllocator, Vector<scene::schema::Component>& outComponents)
         {
             pxr::UsdGeomXform xform(prim);
             pxr::GfMatrix4d xformMatrix;
@@ -61,7 +61,7 @@ namespace rn
                 bool resetStack = false;
                 if (!xform.GetLocalTransformation(&xformMatrix, &resetStack))
                 {
-                    BuildError(file) << "Failed to extract local transform for entity prim." << std::endl;
+                    BuildError(ctxt) << "Failed to extract local transform for entity prim." << std::endl;
                     return false;
                 }
             }
@@ -86,7 +86,7 @@ namespace rn
             return true;
         }
 
-        void BuildChildOfComponent(std::string_view file, const pxr::UsdPrim& prim, uint64_t parentID, BumpAllocator& blobAllocator, Vector<scene::schema::Component>& outComponents)
+        void BuildChildOfComponent(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, uint64_t parentID, BumpAllocator& blobAllocator, Vector<scene::schema::Component>& outComponents)
         {
             scene::schema::ChildOf childOf = {
                 .parent = scene::Entity(parentID)
@@ -97,27 +97,26 @@ namespace rn
 
         constexpr const uint64_t NO_PARENT = std::numeric_limits<uint64_t>::max();
 
-        bool ProcessComponents(std::string_view file, const pxr::UsdPrim& prim, BumpAllocator& blobAllocator, Vector<scene::schema::Component>& outComponents, uint64_t& outArchetypeID)
+        bool ProcessComponents(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, BumpAllocator& blobAllocator, Vector<std::string>& outReferences, Vector<scene::schema::Component>& outComponents, uint64_t& outArchetypeID)
         {
             for (const ComponentHandler& handler : ComponentHandlers())
             {
                 if (handler.fnHasAPI(prim))
                 {
                     outArchetypeID = outArchetypeID ^ handler.typeID;
-                    handler.fnBuildComponent(file, prim, blobAllocator, outComponents);
-                    break;
+                    handler.fnBuildComponent(ctxt, prim, blobAllocator, outReferences, outComponents);
                 }
             }
 
             return true;
         }
 
-        bool ProcessEntity(std::string_view file, const pxr::UsdPrim& prim, uint64_t parentID, const pxr::GfMatrix4d& parentXform, BumpAllocator& blobAllocator, Vector<EntityData>& outEntities, Vector<scene::schema::Component>& outComponents)
+        bool ProcessEntity(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, uint64_t parentID, const pxr::GfMatrix4d& parentXform, BumpAllocator& blobAllocator, Vector<std::string>& outReferences, Vector<EntityData>& outEntities, Vector<scene::schema::Component>& outComponents)
         {
             std::string_view name = prim.GetPath().GetString();
             uint64_t entityID = HashString(name);
 
-            pxr::GfMatrix4d xform = BuildGlobalTransform(file, prim, parentXform);
+            pxr::GfMatrix4d xform = BuildGlobalTransform(ctxt, prim, parentXform);
 
             pxr::UsdPrimSiblingRange children = prim.GetAllChildren();
             for (const pxr::UsdPrim& child : children)
@@ -125,29 +124,29 @@ namespace rn
                 if (child.IsA<pxr::UsdGeomXform>())
                 {
                     // Child entity! Process it first
-                    if (!ProcessEntity(file, child, entityID, xform, blobAllocator, outEntities, outComponents))
+                    if (!ProcessEntity(ctxt, child, entityID, xform, blobAllocator, outReferences, outEntities, outComponents))
                     {
-                        BuildError(file) << "Failed to process child prim: \"" << child.GetPath().GetString() << "\"." << std::endl;
+                        BuildError(ctxt) << "Failed to process child prim: \"" << child.GetPath().GetString() << "\"." << std::endl;
                         return false;
                     }
                 }
             }
 
             size_t startComponentIdx = outComponents.size();
-            if (!BuildTransformComponent(file, prim, xform, blobAllocator, outComponents))
+            if (!BuildTransformComponent(ctxt, prim, xform, blobAllocator, outComponents))
             {
                 return false;
             }
 
             uint64_t archetypeID = 0;
-            if (!ProcessComponents(file, prim, blobAllocator, outComponents, archetypeID))
+            if (!ProcessComponents(ctxt, prim, blobAllocator, outReferences, outComponents, archetypeID))
             {
                 return false;
             }
 
             if (parentID != NO_PARENT)
             {
-                BuildChildOfComponent(file, prim, parentID, blobAllocator, outComponents);
+                BuildChildOfComponent(ctxt, prim, parentID, blobAllocator, outComponents);
             }
 
             outEntities.push_back({
@@ -166,12 +165,13 @@ namespace rn
         ComponentHandlers().push_back(handler);
     }
 
-    int ProcessUsdScene(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
+    int ProcessUsdScene(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
     {
         BumpAllocator blobAllocator(MemoryCategory::Default, 64 * MEGA);
 
-        Vector<EntityData> entityData = MakeVector<EntityData>(MemoryCategory::TestCategory);
-        Vector<scene::schema::Component> components = MakeVector<scene::schema::Component>(MemoryCategory::TestCategory);
+        Vector<std::string> references;
+        Vector<EntityData> entityData;
+        Vector<scene::schema::Component> components;
 
         pxr::GfMatrix4d rootXform;
 
@@ -181,7 +181,7 @@ namespace rn
             if (child.IsA<pxr::UsdGeomXform>())
             {
                 // This is an entity
-                if (!ProcessEntity(file, child, NO_PARENT, rootXform, blobAllocator, entityData, components))
+                if (!ProcessEntity(ctxt, child, NO_PARENT, rootXform, blobAllocator, references, entityData, components))
                 {
                     return 1;
                 }
@@ -211,6 +211,14 @@ namespace rn
         Span<uint8_t> assetData = { static_cast<uint8_t*>(ScopedAlloc(outSize, CACHE_LINE_TARGET_SIZE)), outSize };
         rn::Serialize(assetData, outScene);
 
-        return WriteAssetToDisk(file, ".scene", options, assetData, {}, outFiles);
+        ScopedVector<std::string_view> refViews;
+        refViews.reserve(references.size());
+
+        for (const std::string& ref : references)
+        {
+            refViews.push_back(ref);
+        }
+
+        return WriteAssetToDisk(ctxt, ".scene", assetData, refViews, outFiles);
     }
 }

@@ -10,5 +10,5 @@
 namespace rn
 {
     struct DataBuildOptions;
-    int ProcessUsdTexture(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Vector<std::string>& outFiles);
+    int ProcessUsdTexture(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, Vector<std::string>& outFiles);
 }

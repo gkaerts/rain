@@ -9,6 +9,7 @@
 #include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/mesh.h>
 #include <pxr/usd/usdGeom/xform.h>
+#include <pxr/usd/usdGeom/scope.h>
 
 #include <pxr/usd/usdShade/material.h>
 
@@ -28,22 +29,30 @@
 #include "scene/scene.hpp"
 namespace rn
 {
-    std::filesystem::path MakeAssetReferencePath(std::string_view file, const pxr::SdfAssetPath& path, const std::filesystem::path& extension)
+    std::filesystem::path MakeAssetReferencePath(const DataBuildContext& ctxt, const pxr::SdfAssetPath& path, const std::filesystem::path& extension)
     {
         std::string assetPath = path.GetResolvedPath();
-        std::filesystem::path outPath = MakeRelativeTo(file, assetPath);
+        std::filesystem::path outPath = MakeRelativeTo(ctxt.file, assetPath);
         outPath.replace_extension(extension);
 
         return outPath;
     }
 
-    bool IsNonEmptyAssetPath(std::string_view file, const pxr::UsdAttribute& prop)
+    std::filesystem::path MakeAbsoluteAssetReferencePath(const DataBuildContext& ctxt, const pxr::SdfAssetPath& path, const std::filesystem::path& extension)
+    {
+        std::filesystem::path outPath = path.GetResolvedPath();
+        outPath.replace_extension(extension);
+
+        return outPath;
+    }
+
+    bool IsNonEmptyAssetPath(const DataBuildContext& ctxt, const pxr::UsdAttribute& prop)
     {
         auto str = Value<pxr::SdfAssetPath>(prop);
         return !str.GetAssetPath().empty();
     }
 
-    bool IsNonEmptyString(std::string_view file, const pxr::UsdAttribute& prop)
+    bool IsNonEmptyString(const DataBuildContext& ctxt, const pxr::UsdAttribute& prop)
     {
         pxr::TfToken str = Value<pxr::TfToken>(prop);
         return !str.IsEmpty();
@@ -56,7 +65,7 @@ namespace rn
         return paths;
     }
 
-    bool IsRelationshipNotEmpty(std::string_view file, const pxr::UsdProperty& prop)
+    bool IsRelationshipNotEmpty(const DataBuildContext& ctxt, const pxr::UsdProperty& prop)
     {
         const pxr::UsdRelationship* rel = static_cast<const pxr::UsdRelationship*>(&prop);
 
@@ -65,14 +74,14 @@ namespace rn
 
         if (paths.empty())
         {
-            BuildError(file) << "Required relationship does not have any values" << std::endl;
+            BuildError(ctxt) << "Required relationship does not have any values" << std::endl;
             return false;
         }
 
         return true;
     }
 
-    bool ValidatePrim(std::string_view file, const pxr::UsdPrim& prim, const PrimSchema& schema)
+    bool ValidatePrim(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, const PrimSchema& schema)
     {
         for (const PrimProperty& key : schema.requiredProperties)
         {
@@ -80,16 +89,16 @@ namespace rn
             pxr::UsdProperty prop = prim.GetProperty(nameToken);
             if (!prop || !prop.IsAuthored())
             {
-                BuildError(file) << "Required property '" << key.name << "' not found in prim \"" << prim.GetPath() << "\"" << std::endl;
+                BuildError(ctxt) << "Required property '" << key.name << "' not found in prim \"" << prim.GetPath() << "\"" << std::endl;
                 return false;
             }
 
            
             if (pxr::UsdAttribute attr = prim.GetAttribute(nameToken); attr && key.fnIsValidPropertyValue)
             {
-                if (!key.fnIsValidPropertyValue(file, attr))
+                if (!key.fnIsValidPropertyValue(ctxt, attr))
                 {
-                    BuildError(file) << "Required attribute '" << key.name << "' has an unsupported value." << std::endl;
+                    BuildError(ctxt) << "Required attribute '" << key.name << "' has an unsupported value." << std::endl;
                     return false;
                 }
             }
@@ -98,13 +107,13 @@ namespace rn
             {
                 if (ResolveRelationTargets(rel).empty())
                 {
-                    BuildError(file) << "Required relationship '" << key.name << "' does not list any elements." << std::endl;
+                    BuildError(ctxt) << "Required relationship '" << key.name << "' does not list any elements." << std::endl;
                     return false;
                 }
 
-                if (key.fnIsValidRelationship && !key.fnIsValidRelationship(file, *prim.GetStage(), rel))
+                if (key.fnIsValidRelationship && !key.fnIsValidRelationship(ctxt, *prim.GetStage(), rel))
                 {
-                    BuildError(file) << "Required relationship '" << key.name << "' is invalid." << std::endl;
+                    BuildError(ctxt) << "Required relationship '" << key.name << "' is invalid." << std::endl;
                     return false;
                 }
             }
@@ -116,18 +125,18 @@ namespace rn
             auto nameToken = pxr::TfToken(key.name);
             if (pxr::UsdAttribute attr = prim.GetAttribute(nameToken); attr && key.fnIsValidPropertyValue)
             {
-                if (!key.fnIsValidPropertyValue(file, attr))
+                if (!key.fnIsValidPropertyValue(ctxt, attr))
                 {
-                    BuildError(file) << "Attribute '" << key.name << "' has an unsupported value." << std::endl;
+                    BuildError(ctxt) << "Attribute '" << key.name << "' has an unsupported value." << std::endl;
                     return false;
                 }
             }
 
             if (pxr::UsdRelationship rel = prim.GetRelationship(nameToken); rel)
             {
-                if (key.fnIsValidRelationship && !key.fnIsValidRelationship(file, *prim.GetStage(), rel))
+                if (key.fnIsValidRelationship && !key.fnIsValidRelationship(ctxt, *prim.GetStage(), rel))
                 {
-                    BuildError(file) << "Relationship '" << key.name << "' is invalid." << std::endl;
+                    BuildError(ctxt) << "Relationship '" << key.name << "' is invalid." << std::endl;
                     return false;
                 }
             }
@@ -136,9 +145,9 @@ namespace rn
         return true;
     }
 
-    int DoBuildUSD(std::string_view file, const DataBuildOptions& options, Vector<std::string>& outFiles)
+    int DoBuildUSD(const DataBuildContext& ctxt, Vector<std::string>& outFiles)
     {
-        std::string filePath = {file.data(), file.length()};
+        std::string filePath = {ctxt.file.data(), ctxt.file.length()};
         pxr::UsdStageRefPtr stage = pxr::UsdStage::Open(filePath);
         pxr::UsdPrimRange range = stage->Traverse();
 
@@ -156,46 +165,46 @@ namespace rn
         pxr::UsdPrim rootPrim = stage->GetDefaultPrim();
         if (!rootPrim.IsValid())
         {
-            BuildError(file) << "No valid default prim provided." << std::endl;
+            BuildError(ctxt) << "No valid default prim provided." << std::endl;
             return 1;
         }
 
         if (rootPrim.IsComponent())
         {
             // This is an asset USD file
-            for (const pxr::UsdPrim& prim : range)
+            if (rootPrim.IsA<pxr::UsdGeomMesh>())
             {
-                if (prim.IsA<pxr::UsdGeomMesh>())
-                {
-                    UsdGeometryBuildDesc desc = {
-                        .mesh = pxr::UsdGeomMesh(prim),
-                        .fnPermute = fnPermute,
-                        .unitScale = float(unitScale)
-                    };
-                    
-                    if (!ProcessUsdGeomMesh(file, options, desc, outFiles))
-                    {
-                        return 1;
-                    }
-                }
-                else if (prim.IsA<pxr::RnTexture>())
-                {
-                    return ProcessUsdTexture(file, options, prim, outFiles);
-                }
-                else if (prim.IsA<pxr::RnMaterialShader>())
-                {
-                    return ProcessUsdMaterialShader(file, options, prim, outFiles);
-                }
-                else if (prim.IsA<pxr::UsdShadeMaterial>() && prim.HasAPI<pxr::RnRainMaterialAPI>())
-                {
-                    return ProcessUsdMaterial(file, options, prim, outFiles);
-                }
+                UsdGeometryBuildDesc desc = {
+                    .mesh = pxr::UsdGeomMesh(rootPrim),
+                    .fnPermute = fnPermute,
+                    .unitScale = float(unitScale)
+                };
+
+                return ProcessUsdGeomMesh(ctxt, desc, outFiles);
             }
+            else if (rootPrim.IsA<pxr::RnTexture>())
+            {
+                return ProcessUsdTexture(ctxt, rootPrim, outFiles);
+            }
+            else if (rootPrim.IsA<pxr::RnMaterialShader>())
+            {
+                return ProcessUsdMaterialShader(ctxt, rootPrim, outFiles);
+            }
+            else if (rootPrim.IsA<pxr::UsdShadeMaterial>() && rootPrim.HasAPI<pxr::RnRainMaterialAPI>())
+            {
+                return ProcessUsdMaterial(ctxt, rootPrim, outFiles);
+            }
+            
+        }
+        else if (rootPrim.IsA<pxr::UsdGeomScope>() || rootPrim.IsA<pxr::UsdGeomXform>())
+        {
+            // This is a "scene" USD file
+            return ProcessUsdScene(ctxt, rootPrim, outFiles);
         }
         else
         {
-            // This is a "scene" USD file
-            return ProcessUsdScene(file, options, rootPrim, outFiles);
+            BuildError(ctxt) << "Root prim has an unsupported schema type. Stopping build." << std::endl;
+            return 1;
         }
         
         return 0;

@@ -222,8 +222,8 @@ namespace rn
     // Is this winding right?
     constexpr const int QUAD_TRIANGULATION_INDICES[] = { 0, 1, 2, 0, 2, 3 };
 
-    bool ProcessUsdPoints(std::string_view file, 
-        const DataBuildOptions& options, 
+    bool ProcessUsdPoints(const DataBuildContext& ctxt, 
+        
         const pxr::UsdGeomMesh& mesh, 
         float unitScale, 
         FnPermuteVec3 fnPermute, 
@@ -282,8 +282,8 @@ namespace rn
         pxr::TfToken("UVMap")
     };
 
-    bool ProcessUsdNormals(std::string_view file, 
-        const DataBuildOptions& options, 
+    bool ProcessUsdNormals(const DataBuildContext& ctxt, 
+        
         const pxr::UsdGeomMesh& mesh, 
         FnPermuteVec3 fnPermute, 
         Vector<pxr::GfVec3f>& outNormals)
@@ -300,7 +300,7 @@ namespace rn
             pxr::UsdGeomPrimvarsAPI primvarAPI(mesh.GetPrim());
             if (!primvarAPI.GetPrimvar(PRIMVAR_NORMALS).Get(&vtNormals))
             {
-                BuildError(file) << "USD: No normals found (UsdGeomMesh: \"" << mesh.GetPath() << "\")." << std::endl;
+                BuildError(ctxt) << "USD: No normals found (UsdGeomMesh: \"" << mesh.GetPath() << "\")." << std::endl;
                 return false;
             }
         }
@@ -314,8 +314,8 @@ namespace rn
         return true;
     }
 
-    bool ProcessUsdTexcoords(std::string_view file, 
-        const DataBuildOptions& options, 
+    bool ProcessUsdTexcoords(const DataBuildContext& ctxt, 
+        
         const pxr::UsdGeomMesh& mesh,
         Vector<pxr::GfVec2f>& outTexcoords)
     {
@@ -393,7 +393,7 @@ namespace rn
         }
     };
 
-    bool BuildTangents(std::string_view file, const DataBuildOptions& options, RawGeometryData& geo)
+    bool BuildTangents(const DataBuildContext& ctxt, RawGeometryData& geo)
     {
         if (geo.normals.empty() || geo.texcoords.empty())
         {
@@ -413,7 +413,7 @@ namespace rn
     }
 
     const pxr::TfToken MATERIAL_BIND = pxr::TfToken("materialBind");
-    bool ProcessUsdGeomSubsets(std::string_view file, const DataBuildOptions& options, const pxr::UsdGeomMesh& mesh, const Vector<size_t>& faceStartIndices, Vector<RawGeometryPart>& outParts)
+    bool ProcessUsdGeomSubsets(const DataBuildContext& ctxt, const pxr::UsdGeomMesh& mesh, const Vector<size_t>& faceStartIndices, Vector<RawGeometryPart>& outParts)
     {
         std::vector<pxr::UsdGeomSubset> subsets = pxr::UsdGeomSubset::GetAllGeomSubsets(mesh);
         size_t faceCount = mesh.GetFaceCount();
@@ -469,7 +469,7 @@ namespace rn
                 subset.GetElementTypeAttr().Get(&elementType);
                 if (elementType != pxr::UsdGeomTokens->face)
                 {
-                    BuildError(file) << "USD: Unsupported elementType found for UsdGeomSubset: \"" << elementType << "\" (UsdGeomSubset: \"" << subset.GetPath() << "\")." << std::endl;
+                    BuildError(ctxt) << "USD: Unsupported elementType found for UsdGeomSubset: \"" << elementType << "\" (UsdGeomSubset: \"" << subset.GetPath() << "\")." << std::endl;
                     return false;
                 }
 
@@ -477,7 +477,7 @@ namespace rn
                 subset.GetFamilyNameAttr().Get(&familyName);
                 if (familyName != MATERIAL_BIND)
                 {
-                    BuildError(file) << "USD: Unsupported familyName found for UsdGeomSubset: \"" << familyName << "\" (UsdGeomSubset: \"" << subset.GetPath() << "\")." << std::endl;
+                    BuildError(ctxt) << "USD: Unsupported familyName found for UsdGeomSubset: \"" << familyName << "\" (UsdGeomSubset: \"" << subset.GetPath() << "\")." << std::endl;
                     return false;
                 }
                 
@@ -519,7 +519,7 @@ namespace rn
         return true;
     }
 
-    pxr::GfRange3f ComputeAABB(std::string_view file, const DataBuildOptions& options, const pxr::UsdGeomMesh& mesh, FnPermuteVec3 fnPermute)
+    pxr::GfRange3f ComputeAABB(const DataBuildContext& ctxt, const pxr::UsdGeomMesh& mesh, FnPermuteVec3 fnPermute)
     {
         pxr::UsdTimeCode time = pxr::UsdTimeCode::Default();
         pxr::GfBBox3d bound = mesh.ComputeLocalBound(time, pxr::UsdGeomTokens->default_);
@@ -591,7 +591,7 @@ namespace rn
         }
     }
 
-    bool BuildAsset(std::string_view file, const DataBuildOptions& options, std::string meshName, const RawGeometryData& geometry, Vector<std::string>& outFiles)
+    bool BuildAsset(const DataBuildContext& ctxt, const RawGeometryData& geometry, Vector<std::string>& outFiles)
     {
         using namespace data;
         MemoryScope SCOPE;
@@ -721,12 +721,11 @@ namespace rn
         Span<uint8_t> outData = { static_cast<uint8_t*>(ScopedAlloc(serializedSize, CACHE_LINE_TARGET_SIZE)), serializedSize };
         rn::Serialize<schema::Geometry>(outData, outGeometry);
 
-        std::string extension = meshName;
-        extension += ".geometry";
-        return WriteAssetToDisk(file, extension, options, outData, {}, outFiles) == 0;
+        std::string extension = ".geometry";
+        return WriteAssetToDisk(ctxt, extension, outData, {}, outFiles) == 0;
     }
 
-    bool ProcessUsdGeomMesh(std::string_view file, const DataBuildOptions& options, const UsdGeometryBuildDesc& desc, Vector<std::string>& outFiles)
+    int ProcessUsdGeomMesh(const DataBuildContext& ctxt, const UsdGeometryBuildDesc& desc, Vector<std::string>& outFiles)
     {
         pxr::UsdGeomMesh mesh = desc.mesh;
 
@@ -735,7 +734,7 @@ namespace rn
 
         if (subdivScheme != "none")
         {
-            BuildError(file) << "USD: Subdivision scheme \"" << subdivScheme << "\" is not supported (UsdGeomMesh: \"" << mesh.GetPath() << "\")." << std::endl;
+            BuildError(ctxt) << "USD: Subdivision scheme \"" << subdivScheme << "\" is not supported (UsdGeomMesh: \"" << mesh.GetPath() << "\")." << std::endl;
             return false;
         }
        
@@ -743,7 +742,7 @@ namespace rn
         if (mesh.GetFaceVertexIndicesAttr().GetNumTimeSamples() > 1 ||
             mesh.GetFaceVertexCountsAttr().GetNumTimeSamples() > 1)
         {
-            BuildError(file) << "USD: USDGeomMesh has more than one time sample! This is not supported yet! (UsdGeomMesh: \"" << mesh.GetPath() << "\")." << std::endl;
+            BuildError(ctxt) << "USD: USDGeomMesh has more than one time sample! This is not supported yet! (UsdGeomMesh: \"" << mesh.GetPath() << "\")." << std::endl;
             return false;
         }
 
@@ -760,7 +759,7 @@ namespace rn
             int faceVertexCount = faceVertexCounts[faceIdx];
             if (faceVertexCount != 3 && faceVertexCount != 4)
             {
-                BuildError(file) << "USD: UsdGeomMesh has faces with an unsupported vertex count: " << faceVertexCount << " (UsdGeomMesh: \"" << mesh.GetPath() << "\")." << std::endl;
+                BuildError(ctxt) << "USD: UsdGeomMesh has faces with an unsupported vertex count: " << faceVertexCount << " (UsdGeomMesh: \"" << mesh.GetPath() << "\")." << std::endl;
                 return false;
             }
 
@@ -770,22 +769,22 @@ namespace rn
 
         RawGeometryData outGeometry = {};
 
-        if (!ProcessUsdPoints(file, options, mesh, desc.unitScale, desc.fnPermute, outGeometry.positions, outGeometry.tempTriIndices) ||
-            !ProcessUsdNormals(file, options, mesh, desc.fnPermute, outGeometry.normals) ||
-            !ProcessUsdTexcoords(file, options, mesh, outGeometry.texcoords) ||
-            !BuildTangents(file, options, outGeometry) ||
-            !ProcessUsdGeomSubsets(file, options, mesh, faceStartIndices, outGeometry.parts))
+        if (!ProcessUsdPoints(ctxt, mesh, desc.unitScale, desc.fnPermute, outGeometry.positions, outGeometry.tempTriIndices) ||
+            !ProcessUsdNormals(ctxt, mesh, desc.fnPermute, outGeometry.normals) ||
+            !ProcessUsdTexcoords(ctxt, mesh, outGeometry.texcoords) ||
+            !BuildTangents(ctxt, outGeometry) ||
+            !ProcessUsdGeomSubsets(ctxt, mesh, faceStartIndices, outGeometry.parts))
         {
             return false;
         }
 
-        outGeometry.aabb = ComputeAABB(file, options, mesh, desc.fnPermute);
+        outGeometry.aabb = ComputeAABB(ctxt, mesh, desc.fnPermute);
 
         if (!OptimizeAndPackGeometry(outGeometry))
         {
             return false;
         }
 
-        return BuildAsset(file, options, mesh.GetPrim().GetName().GetString(), outGeometry, outFiles);
+        return BuildAsset(ctxt, outGeometry, outFiles) ? 0 : 1;
     }
 }

@@ -21,21 +21,21 @@ namespace rn
         };
     }
 
-    std::ostream& BuildError(std::string_view file, const toml::source_region& source)
+    std::ostream& BuildError(const DataBuildContext& ctxt, const toml::source_region& source)
     {
-        return std::cerr << "ERROR: " << file << " (" << source.begin << "): ";
+        return std::cerr << "ERROR: " << ctxt.file << " (" << source.begin << "): ";
     }
 
-    std::ostream& BuildWarning(std::string_view file, const toml::source_region& source)
+    std::ostream& BuildWarning(const DataBuildContext& ctxt, const toml::source_region& source)
     {
-        return std::cerr << "WARNING: " << file << " (" << source.begin << "): ";
+        return std::cerr << "WARNING: " << ctxt.file << " (" << source.begin << "): ";
     }
 
-    bool ValidateTable(std::string_view file, toml::node& node, const TableSchema& schema)
+    bool ValidateTable(const DataBuildContext& ctxt, toml::node& node, const TableSchema& schema)
     {
         if (!node.is_table())
         {
-            BuildError(file, node.source()) << "Node with name " << schema.name << " expected to be of type 'table' but is of type '" << node.type() << "'" << std::endl;
+            BuildError(ctxt, node.source()) << "Node with name " << schema.name << " expected to be of type 'table' but is of type '" << node.type() << "'" << std::endl;
             return false;
         }
 
@@ -45,21 +45,21 @@ namespace rn
             auto field = table[key.name];
             if (!field)
             {
-                BuildError(file, table.source()) << "Required field '" << key.name << "' not found in table [" << schema.name << "]" << std::endl;
+                BuildError(ctxt, table.source()) << "Required field '" << key.name << "' not found in table [" << schema.name << "]" << std::endl;
                 return false;
             }
             else if (field.type() != key.type)
             {
-                BuildError(file, field.node()->source()) << "Required field '" << key.name << "' in table [" << schema.name << "] is of type '" << field.type() 
+                BuildError(ctxt, field.node()->source()) << "Required field '" << key.name << "' in table [" << schema.name << "] is of type '" << field.type() 
                     << "', but expected type '" << key.type << "'" << std::endl;
                 return false;
             }
 
             if (key.fnIsValidValue)
             {
-                if (!key.fnIsValidValue(file, *field.node()))
+                if (!key.fnIsValidValue(ctxt, *field.node()))
                 {
-                    BuildError(file, table.source()) << "Required field '" << key.name << "' has an unsupported value of " << field << "" << std::endl;
+                    BuildError(ctxt, table.source()) << "Required field '" << key.name << "' has an unsupported value of " << field << "" << std::endl;
                     return false;
                 }
             }
@@ -70,16 +70,16 @@ namespace rn
             auto field = table[key.name];
             if (field && field.type() != key.type)
             {
-                BuildError(file, field.node()->source()) << "Field '" << key.name << "' in table [" << schema.name << "] is of type '" << field.type() 
+                BuildError(ctxt, field.node()->source()) << "Field '" << key.name << "' in table [" << schema.name << "] is of type '" << field.type() 
                     << "', but expected type '" << key.type << "'" << std::endl;
                 return false;
             }
 
             if (field && key.fnIsValidValue)
             {
-                if (!key.fnIsValidValue(file, *field.node()))
+                if (!key.fnIsValidValue(ctxt, *field.node()))
                 {
-                    BuildError(file, table.source()) << "Field '" << key.name << "' has an unsupported value of " << field << "" << std::endl;
+                    BuildError(ctxt, table.source()) << "Field '" << key.name << "' has an unsupported value of " << field << "" << std::endl;
                     return false;
                 }
             }
@@ -88,13 +88,13 @@ namespace rn
         return true;
     }
 
-    bool ValidateArray(std::string_view file, std::string_view name, toml::array* arr, toml::node_type elementType)
+    bool ValidateArray(const DataBuildContext& ctxt, std::string_view name, toml::array* arr, toml::node_type elementType)
     {
         if (!arr->empty())
         {
             if (!arr->is_homogeneous(elementType))
             {
-                BuildError(file, arr->source()) << "Array '" << name << "' is expected to be homogeneous and of type '" << elementType << "'" << std::endl;
+                BuildError(ctxt, arr->source()) << "Array '" << name << "' is expected to be homogeneous and of type '" << elementType << "'" << std::endl;
                 return false;
             }
         }
@@ -102,22 +102,22 @@ namespace rn
         return true;
     }
 
-    int DoBuildTOML(std::string_view file, const DataBuildOptions& options, Vector<std::string>& outFiles)
+    int DoBuildTOML(const DataBuildContext& ctxt, Vector<std::string>& outFiles)
     {
         int ret = 0;
         try
         {
-            rn::BuildMessage(file) << "Building asset" << std::endl;
-            auto root = toml::parse_file(file);
+            rn::BuildMessage(ctxt) << "Building asset" << std::endl;
+            auto root = toml::parse_file(ctxt.file);
 
             auto build = root["build"];
             if (!build)
             {
-                rn::BuildError(file) << "No [build] table found" << std::endl;
+                rn::BuildError(ctxt) << "No [build] table found" << std::endl;
                 return 1;
             }
 
-            if (!ValidateTable(file, *build.node(), BUILD_TABLE_SCHEMA))
+            if (!ValidateTable(ctxt, *build.node(), BUILD_TABLE_SCHEMA))
             {
                 return 1;
             }
@@ -135,15 +135,15 @@ namespace rn
 
             if (!onBuildAsset)
             {
-                rn::BuildError(file) << "Unknown build type specified: " << buildType << std::endl;
+                rn::BuildError(ctxt) << "Unknown build type specified: " << buildType << std::endl;
                 return 1;
             }
 
-            ret = onBuildAsset(file, root, options, outFiles);
+            ret = onBuildAsset(ctxt, root, outFiles);
         }
         catch(const toml::parse_error& e)
         {
-            rn::BuildError(file) << "Failed to parse TOML file:" << std::endl;
+            rn::BuildError(ctxt) << "Failed to parse TOML file:" << std::endl;
             std::cerr << e << std::endl;
             return 1;
         }

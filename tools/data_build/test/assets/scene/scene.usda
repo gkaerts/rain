@@ -7,15 +7,14 @@
 
 def Scope "Scene"
 {
-    def Xform "Entity" (
+    def Xform "LightEntity" (
         prepend apiSchemas = ["OmniLightComponentAPI"]
-    )
-    {
+    ) {
         matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
         uniform token[] xformOpOrder = ["xformOp:transform"]
 
         rel omnilight:source = [
-            </Scene/Entity/Light>
+            </Scene/LightEntity/Light>
         ]
 
         uniform bool omnilight:castShadow = false
@@ -32,6 +31,32 @@ def Scope "Scene"
         {
             matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
             uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+    }
+
+    def Xform "MeshEntity" (
+        prepend apiSchemas = ["RenderMeshComponentAPI", "RenderMaterialListComponentAPI"]
+    ) {
+        float3 xformOp:translate = (10, 5, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        rel rendermesh:geometry = [
+            </Scene/MeshEntity/Geometry>
+        ]
+
+        rel rendermateriallist:materials = [
+            </Scene/MeshEntity/Materials/FirstMaterial>
+        ]
+
+        def "Geometry" (
+            references = @../geometry/monkey.usda@
+        ) {}
+
+        def "Materials"
+        {
+            def "FirstMaterial" (
+                references = @../materials/material.usda@
+            ) {}
         }
     }
 }

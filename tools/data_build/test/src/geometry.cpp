@@ -29,7 +29,7 @@ TEST(DataBuildTests_Geometry, IntegrationTest_Monkey)
         .builder = &geometryBuilder
     });
 
-    constexpr const std::string_view geometryPath = "geometry/monkey.Suzanne.geometry";
+    constexpr const std::string_view geometryPath = "geometry/monkey.geometry";
     asset::AssetIdentifier geometryId = asset::MakeAssetIdentifier(geometryPath);
     registry.Load(geometryPath);
 
@@ -79,7 +79,7 @@ TEST(DataBuildTests_Geometry, IntegrationTest_CubeSphere)
         .builder = &geometryBuilder
     });
 
-    constexpr const std::string_view geometryPath = "geometry/cube_sphere.Cube.geometry";
+    constexpr const std::string_view geometryPath = "geometry/cube_sphere.geometry";
     asset::AssetIdentifier geometryId = asset::MakeAssetIdentifier(geometryPath);
     registry.Load(geometryPath);
 

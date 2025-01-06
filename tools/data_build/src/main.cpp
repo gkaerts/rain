@@ -59,19 +59,20 @@ int main(int argc, char* argv[])
 {
     rn::InitializeScopedAllocationForThread(16 * rn::MEGA);
 
-    std::string_view file = ""sv;
-    rn::DataBuildOptions options = 
-    {
-        .exeName = argv[0],
-        .outputDirectory = ""sv,
-        .cacheDirectory = "build/data_cache"sv,
-        .assetRootDirectory = "./"sv
+    rn::DataBuildContext ctxt = {
+        .file = ""sv,
+        .options = {
+            .exeName = argv[0],
+            .outputDirectory = ""sv,
+            .cacheDirectory = "build/data_cache"sv,
+            .assetRootDirectory = "./"sv
+        }
     };
 
     int ret = 1;
-    if (ParseArgs<rn::DataBuildOptions>(rn::DATA_BUILD_TOOL, options, file, rn::OPTIONS, argc, argv))
+    if (ParseArgs<rn::DataBuildOptions>(rn::DATA_BUILD_TOOL, ctxt.options, ctxt.file, rn::OPTIONS, argc, argv))
     {
-        ret = rn::DoBuild(file, options);
+        ret = rn::DoBuild(ctxt);
     }
 
     rn::TeardownScopedAllocationForThread();

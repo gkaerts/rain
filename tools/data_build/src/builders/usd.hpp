@@ -14,8 +14,8 @@
 
 namespace rn
 {
-    using FnIsValidPropertyValue = bool(*)(std::string_view file, const pxr::UsdAttribute& prop);
-    using FnIsValidRelationship = bool(*)(std::string_view file, const pxr::UsdStage& stage, const pxr::UsdRelationship& rel);
+    using FnIsValidPropertyValue = bool(*)(const DataBuildContext& ctxt, const pxr::UsdAttribute& prop);
+    using FnIsValidRelationship = bool(*)(const DataBuildContext& ctxt, const pxr::UsdStage& stage, const pxr::UsdRelationship& rel);
 
     struct PrimProperty
     {
@@ -37,15 +37,17 @@ namespace rn
         return outValue;
     }
 
-    std::filesystem::path MakeAssetReferencePath(std::string_view file, const pxr::SdfAssetPath& path, const std::filesystem::path& extension);
-    bool IsNonEmptyAssetPath(std::string_view file, const pxr::UsdAttribute& prop);
-    bool IsNonEmptyString(std::string_view file, const pxr::UsdAttribute& prop);
+    std::filesystem::path MakeAssetReferencePath(const DataBuildContext& ctxt, const pxr::SdfAssetPath& path, const std::filesystem::path& extension);
+    std::filesystem::path MakeAbsoluteAssetReferencePath(const DataBuildContext& ctxt, const pxr::SdfAssetPath& path, const std::filesystem::path& extension);
+
     pxr::SdfPathVector ResolveRelationTargets(const pxr::UsdRelationship& rel);
-    bool IsRelationshipNotEmpty(std::string_view file, const pxr::UsdProperty& prop);
-    bool ValidatePrim(std::string_view file, const pxr::UsdPrim& prim, const PrimSchema& schema);
+    bool IsNonEmptyAssetPath(const DataBuildContext& ctxt, const pxr::UsdAttribute& prop);
+    bool IsNonEmptyString(const DataBuildContext& ctxt, const pxr::UsdAttribute& prop);
+    bool IsRelationshipNotEmpty(const DataBuildContext& ctxt, const pxr::UsdProperty& prop);
+    bool ValidatePrim(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, const PrimSchema& schema);
 
     template <typename... T>
-    bool RelatedPrimIsA(std::string_view file, const pxr::UsdStage& stage, const pxr::UsdRelationship& rel)
+    bool RelatedPrimIsA(const DataBuildContext& ctxt, const pxr::UsdStage& stage, const pxr::UsdRelationship& rel)
     {
         pxr::SdfPathVector paths = ResolveRelationTargets(rel);
         for (const pxr::SdfPath& path : paths)
@@ -62,7 +64,7 @@ namespace rn
     }
 
     template <typename... T>
-    bool RelatedPrimHasAPI(std::string_view file, const pxr::UsdStage& stage, const pxr::UsdRelationship& rel)
+    bool RelatedPrimHasAPI(const DataBuildContext& ctxt, const pxr::UsdStage& stage, const pxr::UsdRelationship& rel)
     {
         pxr::SdfPathVector paths = ResolveRelationTargets(rel);
         for (const pxr::SdfPath& path : paths)
@@ -78,5 +80,5 @@ namespace rn
         return true;
     }
 
-    int DoBuildUSD(std::string_view file, const DataBuildOptions& options, Vector<std::string>& outFiles);
+    int DoBuildUSD(const DataBuildContext& ctxt, Vector<std::string>& outFiles);
 }

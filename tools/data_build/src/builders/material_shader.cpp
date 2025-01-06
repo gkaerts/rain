@@ -139,7 +139,7 @@ namespace rn
         return data::MaterialRenderPass::Count;
     }
 
-    bool IsValidRenderPassName(std::string_view file, const pxr::UsdAttribute& prop)
+    bool IsValidRenderPassName(const DataBuildContext& ctxt, const pxr::UsdAttribute& prop)
     {
         std::string paramStr = Value<pxr::TfToken>(prop).GetString();
         std::transform(paramStr.cbegin(), paramStr.cend(), paramStr.begin(), [](char c) { return std::tolower(c); });
@@ -158,13 +158,13 @@ namespace rn
     const pxr::TfToken TOKEN_2D = pxr::TfToken("2D");
     const pxr::TfToken TOKEN_3D = pxr::TfToken("3D");
 
-    bool IsValidTextureDimension(std::string_view file, const pxr::UsdAttribute& prop)
+    bool IsValidTextureDimension(const DataBuildContext& ctxt, const pxr::UsdAttribute& prop)
     {
         pxr::TfToken dim = Value<pxr::TfToken>(prop);
         return dim == TOKEN_2D || dim == TOKEN_3D;
     }
 
-    bool IsValidVecDimension(std::string_view file, const pxr::UsdAttribute& prop)
+    bool IsValidVecDimension(const DataBuildContext& ctxt, const pxr::UsdAttribute& prop)
     {
         return Value<uint32_t>(prop) > 0 && Value<uint32_t>(prop) <= 16;
     }
@@ -275,9 +275,9 @@ namespace rn
         }
     };
 
-    bool ParseMaterialShader(MaterialShader& outShader, std::string_view file, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
+    bool ParseMaterialShader(const DataBuildContext& ctxt, MaterialShader& outShader, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
     {
-        if (!ValidatePrim(file, prim, MATERIAL_SHADER_PRIM_SCHEMA))
+        if (!ValidatePrim(ctxt, prim, MATERIAL_SHADER_PRIM_SCHEMA))
         {
             return false;
         }
@@ -290,7 +290,7 @@ namespace rn
 
         outShader.source = ToWString(source.GetAssetPath());
 
-        std::filesystem::path relBuildFileDirectory = std::filesystem::path(file).parent_path();
+        std::filesystem::path relBuildFileDirectory = std::filesystem::path(ctxt.file).parent_path();
         for (const std::string& tok : defines)
         {
             outShader.defines.push_back(ToWString(tok));
@@ -302,7 +302,7 @@ namespace rn
             outShader.includeDirs.push_back(absInclude.wstring());
         }
 
-        outFiles.push_back(MakeRelativeTo(file, outShader.source).string());
+        outFiles.push_back(MakeRelativeTo(ctxt.file, outShader.source).string());
         return true;
     }
 
@@ -322,14 +322,14 @@ namespace rn
     }
 
 
-    bool ParseRenderPasses(std::string_view file, const pxr::RnMaterialShader& prim, MaterialShader& outShader, Vector<EntryPoint>& entryPoints, Vector<std::string>& outFiles)
+    bool ParseRenderPasses(const DataBuildContext& ctxt, const pxr::RnMaterialShader& prim, MaterialShader& outShader, Vector<EntryPoint>& entryPoints, Vector<std::string>& outFiles)
     {
         pxr::UsdStageWeakPtr stage = prim.GetPrim().GetStage();
 
         pxr::SdfPathVector renderPassPaths = ResolveRelationTargets(prim.GetRenderPassesRel());
         if (renderPassPaths.empty())
         {
-            BuildError(file) << "USD: No render passes specified for RnMaterialShader (\"" << prim.GetPath() << "\".)" << std::endl;
+            BuildError(ctxt) << "USD: No render passes specified for RnMaterialShader (\"" << prim.GetPath() << "\".)" << std::endl;
             return false;
         }
 
@@ -338,7 +338,7 @@ namespace rn
             pxr::UsdPrim passPrim = stage->GetPrimAtPath(path);
             if (passPrim.IsA<pxr::RnVertexRasterPass>())
             {
-                if (!ValidatePrim(file, passPrim, VERTEX_RASTER_PASS_PRIM_SCHEMA))
+                if (!ValidatePrim(ctxt, passPrim, VERTEX_RASTER_PASS_PRIM_SCHEMA))
                 {
                     return false;
                 }
@@ -352,7 +352,7 @@ namespace rn
             }
             else if (passPrim.IsA<pxr::RnMeshRasterPass>())
             {
-                if (!ValidatePrim(file, passPrim, MESH_RASTER_PASS_PRIM_SCHEMA))
+                if (!ValidatePrim(ctxt, passPrim, MESH_RASTER_PASS_PRIM_SCHEMA))
                 {
                     return false;
                 }
@@ -367,7 +367,7 @@ namespace rn
             }
             else if (passPrim.IsA<pxr::RnRayTracingPass>())
             {
-                if (!ValidatePrim(file, passPrim, RAY_TRACING_PASS_PRIM_SCHEMA))
+                if (!ValidatePrim(ctxt, passPrim, RAY_TRACING_PASS_PRIM_SCHEMA))
                 {
                     return false;
                 }
@@ -382,7 +382,7 @@ namespace rn
             }
             else
             {
-                BuildError(file) << "USD: Prim \"" << passPrim.GetPath() << "\" is not a valid render pass - RnMaterialShader (\"" << prim.GetPath() << "\".)" << std::endl;
+                BuildError(ctxt) << "USD: Prim \"" << passPrim.GetPath() << "\" is not a valid render pass - RnMaterialShader (\"" << prim.GetPath() << "\".)" << std::endl;
                 return false;
             }
         }
@@ -390,12 +390,12 @@ namespace rn
         return true;
     }
 
-    bool ParseParameter(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Parameter& outParam)
+    bool ParseParameter(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, Parameter& outParam)
     {
         pxr::UsdStageWeakPtr stage = prim.GetPrim().GetStage();
         if (prim.IsA<pxr::RnMaterialShaderParamFloatVec>())
         {
-            if (!ValidatePrim(file, prim, FLOAT_VEC_PARAM_PRIM_SCHEMA))
+            if (!ValidatePrim(ctxt, prim, FLOAT_VEC_PARAM_PRIM_SCHEMA))
             {
                 return false;
             }
@@ -420,7 +420,7 @@ namespace rn
         }
         else if (prim.IsA<pxr::RnMaterialShaderParamUintVec>())
         {
-            if (!ValidatePrim(file, prim, UINT_VEC_PARAM_PRIM_SCHEMA))
+            if (!ValidatePrim(ctxt, prim, UINT_VEC_PARAM_PRIM_SCHEMA))
             {
                 return false;
             }
@@ -445,7 +445,7 @@ namespace rn
         }
         else if (prim.IsA<pxr::RnMaterialShaderParamIntVec>())
         {
-            if (!ValidatePrim(file, prim, INT_VEC_PARAM_PRIM_SCHEMA))
+            if (!ValidatePrim(ctxt, prim, INT_VEC_PARAM_PRIM_SCHEMA))
             {
                 return false;
             }
@@ -470,7 +470,7 @@ namespace rn
         }
         else if (prim.IsA<pxr::RnMaterialShaderParamTexture>())
         {
-            if (!ValidatePrim(file, prim, TEXTURE_PARAM_PRIM_SCHEMA))
+            if (!ValidatePrim(ctxt, prim, TEXTURE_PARAM_PRIM_SCHEMA))
             {
                 return false;
             }
@@ -480,13 +480,19 @@ namespace rn
             pxr::SdfPathVector valuePaths = ResolveRelationTargets(param.GetDefaultValueRel());
             if (valuePaths.empty())
             {
-                BuildError(file) << "No texture asset specified for texture material shader parameter." << std::endl;
+                BuildError(ctxt) << "No texture asset specified for texture material shader parameter." << std::endl;
                 return false;
             }
 
             pxr::UsdPrim texturePrim = stage->GetPrimAtPath(valuePaths[0]);
             pxr::VtValue assetId = texturePrim.GetAssetInfo()["identifier"];
-            std::filesystem::path texturePath = MakeAssetReferencePath(file,
+            if (!assetId.IsHolding<pxr::SdfAssetPath>())
+            {
+                BuildError(ctxt) << "Material shader texture not pointing to a valid asset." << std::endl;
+                return false;
+            }
+
+            std::filesystem::path texturePath = MakeAssetReferencePath(ctxt,
                 assetId.Get<pxr::SdfAssetPath>(), 
                 "texture");
 
@@ -503,20 +509,20 @@ namespace rn
         }
         else
         {
-            BuildError(file) << "USD: Prim \"""\" is not a valid material parameter type." << std::endl;
+            BuildError(ctxt) << "USD: Prim \"""\" is not a valid material parameter type." << std::endl;
             return false;
         }
 
         return true;
     }
 
-    bool ParseParameterGroups(MaterialShader& outShader, const DataBuildOptions& options, std::string_view file, const pxr::RnMaterialShader& prim)
+    bool ParseParameterGroups(const DataBuildContext& ctxt, MaterialShader& outShader, const pxr::RnMaterialShader& prim)
     {
         pxr::UsdStageWeakPtr stage = prim.GetPrim().GetStage();
         pxr::SdfPathVector groupPaths = ResolveRelationTargets(prim.GetParamGroupsRel());
         if (groupPaths.empty())
         {
-            BuildError(file) << "USD: No parameter groups specified for RnMaterialShader (\"" << prim.GetPath() << "\".)" << std::endl;
+            BuildError(ctxt) << "USD: No parameter groups specified for RnMaterialShader (\"" << prim.GetPath() << "\".)" << std::endl;
             return false;
         }
 
@@ -525,11 +531,11 @@ namespace rn
             pxr::UsdPrim maybeGroupPrim = stage->GetPrimAtPath(groupPath);
             if (!maybeGroupPrim.IsA<pxr::RnMaterialShaderParamGroup>())
             {
-                BuildError(file) << "USD: Prim \"" << groupPath << "\" is not a valid parameter group." << std::endl;
+                BuildError(ctxt) << "USD: Prim \"" << groupPath << "\" is not a valid parameter group." << std::endl;
                 return false;
             }
             
-            if (!ValidatePrim(file, maybeGroupPrim, PARAMETER_GROUP_PRIM_SCHEMA))
+            if (!ValidatePrim(ctxt, maybeGroupPrim, PARAMETER_GROUP_PRIM_SCHEMA))
             {
                 return false;
             }
@@ -545,7 +551,7 @@ namespace rn
                 pxr::UsdPrim paramPrim = stage->GetPrimAtPath(paramPath);
 
                 Parameter outParam;
-                if (!ParseParameter(file, options, paramPrim, outParam))
+                if (!ParseParameter(ctxt, paramPrim, outParam))
                 {
                     return false;
                 }
@@ -655,7 +661,7 @@ namespace rn
     };
     RN_MATCH_ENUM_AND_ARRAY(CORRESPONDING_UNIFORM_TYPES, data::MaterialShaderParameterType)
 
-    bool ReflectMaterialFromExportShader(std::string_view file, IDxcResult* result, Span<ParameterGroup> paramGroups, uint32_t& outUniformBufferSize)
+    bool ReflectMaterialFromExportShader(const DataBuildContext& ctxt, IDxcResult* result, Span<ParameterGroup> paramGroups, uint32_t& outUniformBufferSize)
     {
         ComPtr<IDxcUtils> dxcUtils;
         DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(dxcUtils.GetAddressOf()));
@@ -663,7 +669,7 @@ namespace rn
         ComPtr<IDxcBlob> obj;
         if (FAILED(result->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(obj.GetAddressOf()), nullptr)))
         {
-            BuildError(file) << "Failed to retrieve shader reflection from material export shader!" << std::endl;
+            BuildError(ctxt) << "Failed to retrieve shader reflection from material export shader!" << std::endl;
             return false;
         }
 
@@ -676,7 +682,7 @@ namespace rn
         ComPtr<ID3D12ShaderReflection> reflection;
         if (FAILED(dxcUtils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(reflection.GetAddressOf()))))
         {
-            BuildError(file) << "Failed to create D3D12 shader reflection." << std::endl;
+            BuildError(ctxt) << "Failed to create D3D12 shader reflection." << std::endl;
             return false;
         }
 
@@ -728,13 +734,13 @@ namespace rn
                 auto it = reflectedUniforms.find(param.param);
                 if (it == reflectedUniforms.end())
                 {
-                    BuildError(file) << "Parameter \"" << param.name << "\" in group \"" << group.name << "\" with shader parameter \"" << param.param << "\" not found in material reflection!" << std::endl;
+                    BuildError(ctxt) << "Parameter \"" << param.name << "\" in group \"" << group.name << "\" with shader parameter \"" << param.param << "\" not found in material reflection!" << std::endl;
                     return false;
                 }
 
                 if (it->second.type != CORRESPONDING_UNIFORM_TYPES[int(param.type)])
                 {
-                    BuildError(file) << "Type mismatch for material parameter \"" << param.name << "\" during material reflection!" << std::endl;
+                    BuildError(ctxt) << "Type mismatch for material parameter \"" << param.name << "\" during material reflection!" << std::endl;
                     return false;
                 }
 
@@ -765,13 +771,13 @@ namespace rn
 
                 if (uniformDimensions != paramDimensions)
                 {
-                    BuildError(file) << "Dimension mismatch for material parameter \"" << param.name << "\" during material reflection!" << std::endl;
+                    BuildError(ctxt) << "Dimension mismatch for material parameter \"" << param.name << "\" during material reflection!" << std::endl;
                     return false;
                 }
 
                 if (it->second.sizeInBytes != paramDimensions * paramElementSize)
                 {
-                    BuildError(file) << "Size mismatch for material parameter \"" << param.name << "\" during material reflection!" << std::endl;
+                    BuildError(ctxt) << "Size mismatch for material parameter \"" << param.name << "\" during material reflection!" << std::endl;
                     return false;
                 }
 
@@ -782,7 +788,7 @@ namespace rn
         return true;
     }
 
-    int BuildShadersAndWriteAsset(std::string_view file, MaterialShader& shader, Vector<EntryPoint>& entryPoints, const DataBuildOptions& options, Vector<std::string>& outFiles)
+    int BuildShadersAndWriteAsset(const DataBuildContext& ctxt, MaterialShader& shader, Vector<EntryPoint>& entryPoints, Vector<std::string>& outFiles)
     {
         using namespace data;
 
@@ -798,13 +804,13 @@ namespace rn
         ScopedVector<ShaderCompilationResult> results;
         results.reserve(entryPoints.size());
         
-        if (!CompileShadersForTargetAPI(file, options, TargetAPI::D3D12, shader.source, entryPoints, shader.defines, shader.includeDirs, results, outFiles))
+        if (!CompileShadersForTargetAPI(ctxt, TargetAPI::D3D12, shader.source, entryPoints, shader.defines, shader.includeDirs, results, outFiles))
         {
             return 1;
         }
 
         uint32_t uniformDataSize = 0;
-        if (!ReflectMaterialFromExportShader(file, results[materialExport].result.Get(), shader.parameterGroups, uniformDataSize))
+        if (!ReflectMaterialFromExportShader(ctxt, results[materialExport].result.Get(), shader.parameterGroups, uniformDataSize))
         {
             return 1;
         }
@@ -993,22 +999,22 @@ namespace rn
         Span<uint8_t> outData = { static_cast<uint8_t*>(ScopedAlloc(serializedSize, CACHE_LINE_TARGET_SIZE)), serializedSize };
         rn::Serialize<schema::MaterialShader>(outData, outShader);
         
-        return WriteAssetToDisk(file, ".material_shader", options, outData, references, outFiles);
+        return WriteAssetToDisk(ctxt, ".material_shader", outData, references, outFiles);
     }
 
-    int ProcessUsdMaterialShader(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
+    int ProcessUsdMaterialShader(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
     {
         MaterialShader shader = {};
         Vector<EntryPoint> entryPoints;
 
         pxr::RnMaterialShader materialShaderPrim(prim);
-        if (!ParseMaterialShader(shader, file, prim, outFiles) ||
-            !ParseRenderPasses(file, materialShaderPrim, shader, entryPoints, outFiles) ||
-            !ParseParameterGroups(shader, options, file, materialShaderPrim))
+        if (!ParseMaterialShader(ctxt, shader, prim, outFiles) ||
+            !ParseRenderPasses(ctxt, materialShaderPrim, shader, entryPoints, outFiles) ||
+            !ParseParameterGroups(ctxt, shader, materialShaderPrim))
         {
             return 1;
         }
         
-        return BuildShadersAndWriteAsset(file, shader, entryPoints, options, outFiles);
+        return BuildShadersAndWriteAsset(ctxt, shader, entryPoints, outFiles);
     }
 }

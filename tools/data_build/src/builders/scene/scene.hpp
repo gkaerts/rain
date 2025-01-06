@@ -13,14 +13,14 @@
 
 namespace rn
 {
-    using FnPrimHasRnAPI = bool(*)(const pxr::UsdPrim&);
-    using FnBuildComponent = bool(*)(std::string_view, const pxr::UsdPrim&, BumpAllocator&, Vector<scene::schema::Component>&);
+    using FnPrimHasRnAPI    = bool(*)(const pxr::UsdPrim&);
+    using FnBuildComponent  = bool(*)(const DataBuildContext&, const pxr::UsdPrim&, BumpAllocator&, Vector<std::string>&, Vector<scene::schema::Component>&);
 
     struct ComponentHandler
     {
-        FnPrimHasRnAPI fnHasAPI;
-        FnBuildComponent fnBuildComponent;
-        uint64_t typeID;
+        FnPrimHasRnAPI      fnHasAPI;
+        FnBuildComponent    fnBuildComponent;
+        uint64_t            typeID;
     };
 
     template <typename T>
@@ -35,15 +35,30 @@ namespace rn
         });
     }
 
-    template <typename UsdType, typename SchemaType, bool Op(std::string_view, const UsdType&, BumpAllocator&, SchemaType&)>
+    template <typename F>
+    struct FuncTraits;
+
+    template <typename R, typename... Args>
+    struct FuncTraits<R(*)(Args...)>
+    {
+        using ArgTuple = std::tuple<Args...>;
+
+        template <size_t N>
+        using ArgN = std::tuple_element_t<N, ArgTuple>;
+    };
+
+    template <auto Op>
     ComponentHandler MakeIsAHandler()
     {
+        using UsdType =     std::remove_cvref_t<std::tuple_element_t<1, typename FuncTraits<decltype(&Op)>::ArgTuple>>;
+        using SchemaType =  std::remove_cvref_t<std::tuple_element_t<4, typename FuncTraits<decltype(&Op)>::ArgTuple>>;
+
         return {
             .fnHasAPI = [](const pxr::UsdPrim& prim) { return prim.IsA<UsdType>(); },
-            .fnBuildComponent = [](std::string_view file, const pxr::UsdPrim& prim, BumpAllocator& allocator, Vector<scene::schema::Component>& outComponents)
+            .fnBuildComponent = [](const DataBuildContext& ctxt, const pxr::UsdPrim& prim, BumpAllocator& allocator, Vector<std::string>& outReferences, Vector<scene::schema::Component>& outComponents)
             {
                 SchemaType component = {};
-                if (!Op(file, UsdType(prim), allocator, component))
+                if (!Op(ctxt, UsdType(prim), allocator, outReferences, component))
                 {
                     return false;
                 }
@@ -55,15 +70,18 @@ namespace rn
         };
     }
 
-    template <typename UsdType, typename SchemaType, bool Op(std::string_view, const UsdType&, BumpAllocator&, SchemaType&)>
+    template <auto Op>
     ComponentHandler MakeHasAPIHandler()
     {
+        using UsdType =     std::remove_cvref_t<std::tuple_element_t<1, typename FuncTraits<decltype(&Op)>::ArgTuple>>;
+        using SchemaType =  std::remove_cvref_t<std::tuple_element_t<4, typename FuncTraits<decltype(&Op)>::ArgTuple>>;
+
         return {
             .fnHasAPI = [](const pxr::UsdPrim& prim) { return prim.HasAPI<UsdType>(); },
-            .fnBuildComponent = [](std::string_view file, const pxr::UsdPrim& prim, BumpAllocator& allocator, Vector<scene::schema::Component>& outComponents)
+            .fnBuildComponent = [](const DataBuildContext& ctxt, const pxr::UsdPrim& prim, BumpAllocator& allocator, Vector<std::string>& outReferences, Vector<scene::schema::Component>& outComponents)
             {
                 SchemaType component = {};
-                if (!Op(file, UsdType(prim), allocator, component))
+                if (!Op(ctxt, UsdType(prim), allocator, outReferences, component))
                 {
                     return false;
                 }
@@ -73,10 +91,11 @@ namespace rn
             },
             .typeID = TypeID<SchemaType>()
         };
+        
     }
 
     void RegisterComponentHandler(const ComponentHandler& handler);
 
     struct DataBuildOptions;
-    int ProcessUsdScene(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Vector<std::string>& outFiles);
+    int ProcessUsdScene(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, Vector<std::string>& outFiles);
 }

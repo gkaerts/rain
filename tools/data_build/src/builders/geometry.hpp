@@ -17,5 +17,5 @@ namespace rn
         float unitScale;
     };
 
-    bool ProcessUsdGeomMesh(std::string_view file, const DataBuildOptions& options, const UsdGeometryBuildDesc& desc, Vector<std::string>& outFiles);
+    int ProcessUsdGeomMesh(const DataBuildContext& ctxt, const UsdGeometryBuildDesc& desc, Vector<std::string>& outFiles);
 }

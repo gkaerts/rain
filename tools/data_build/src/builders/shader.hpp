@@ -17,7 +17,7 @@
 namespace rn
 {
     struct DataBuildOptions;
-    int BuildShader(std::string_view file, toml::parse_result& root, const DataBuildOptions& options, Vector<std::string>& outFiles);
+    int BuildShader(const DataBuildContext& ctxt, toml::parse_result& root, Vector<std::string>& outFiles);
 
     enum class ShaderTarget : uint32_t
     {
@@ -48,8 +48,7 @@ namespace rn
         Microsoft::WRL::ComPtr<IDxcResult> result;
     };
 
-    bool CompileShadersForTargetAPI(std::string_view file, 
-        const DataBuildOptions& options,
+    bool CompileShadersForTargetAPI(const DataBuildContext& ctxt, 
         TargetAPI api,
         const std::wstring& sourceFile,
         Span<const EntryPoint> entryPoints, 

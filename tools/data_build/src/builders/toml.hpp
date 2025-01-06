@@ -8,8 +8,8 @@
 
 namespace rn
 {
-    using FnBuildAsset = int(*)(std::string_view file, toml::parse_result& root, const DataBuildOptions& options, Vector<std::string>& outFiles);
-    using FnIsValidValue = bool(*)(std::string_view file, toml::node& node);
+    using FnBuildAsset = int(*)(const DataBuildContext& ctxt, toml::parse_result& root, Vector<std::string>& outFiles);
+    using FnIsValidValue = bool(*)(const DataBuildContext& ctxt, toml::node& node);
 
     struct Field
     {
@@ -25,10 +25,10 @@ namespace rn
         std::initializer_list<Field> optionalFields;
     };
 
-    std::ostream& BuildError(std::string_view file, const toml::source_region& source);
-    std::ostream& BuildWarning(std::string_view file, const toml::source_region& source);
+    std::ostream& BuildError(const DataBuildContext& ctxt, const toml::source_region& source);
+    std::ostream& BuildWarning(const DataBuildContext& ctxt, const toml::source_region& source);
 
-    bool ValidateTable(std::string_view file, toml::node& node, const TableSchema& schema);
-    bool ValidateArray(std::string_view file, std::string_view name, toml::array* arr, toml::node_type elementType);
-    int DoBuildTOML(std::string_view file, const DataBuildOptions& options, Vector<std::string>& outFiles);
+    bool    ValidateTable(const DataBuildContext& ctxt, toml::node& node, const TableSchema& schema);
+    bool    ValidateArray(const DataBuildContext& ctxt, std::string_view name, toml::array* arr, toml::node_type elementType);
+    int     DoBuildTOML(const DataBuildContext& ctxt, Vector<std::string>& outFiles);
 }

@@ -11,21 +11,6 @@
 
 namespace rn
 {
-    std::ostream& BuildMessage(std::string_view file)
-    {
-        return std::cout << "Build: " << file << ": ";
-    }
-
-    std::ostream& BuildError(std::string_view file)
-    {
-        return std::cerr << "ERROR: " << file << ": ";
-    }
-
-    std::ostream& BuildWarning(std::string_view file)
-    {
-        return std::cerr << "WARNING: " << file << ": ";
-    }
-
     std::filesystem::path MakeRelativeTo(std::string_view buildFile, std::string_view otherFile)
     {
         std::filesystem::path buildFilePath = buildFile;
@@ -40,8 +25,45 @@ namespace rn
         return relBuildFileDirectory / otherFile;
     }
 
-    int WriteAssetToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<uint8_t> assetData, Span<std::string_view> references, Vector<std::string>& outFiles)
+    std::filesystem::path MakeRootRelativeReferencePath(const DataBuildContext& ctxt, std::string_view refPath)
     {
+        std::filesystem::path rootDir = ctxt.options.assetRootDirectory;
+        rootDir = std::filesystem::absolute(rootDir);
+
+        std::filesystem::path refFilePath = refPath;
+        refFilePath = std::filesystem::absolute(refFilePath);
+
+        std::error_code err;
+        refFilePath = std::filesystem::relative(refFilePath, rootDir, err);
+        if (err)
+        {
+            BuildError(ctxt) << "Dependent asset \"" << refFilePath << "\" is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
+            return "";
+        }
+
+        return refFilePath;
+    }
+
+    std::ostream& BuildMessage(const DataBuildContext& ctxt)
+    {
+        return std::cout << "Build: " << ctxt.file << ": ";
+    }
+
+    std::ostream& BuildError(const DataBuildContext& ctxt)
+    {
+        return std::cerr << "ERROR: " << ctxt.file << ": ";
+    }
+
+    std::ostream& BuildWarning(const DataBuildContext& ctxt)
+    {
+        return std::cerr << "WARNING: " << ctxt.file << ": ";
+    }
+
+    int WriteAssetToDisk(const DataBuildContext& ctxt, std::string_view extension, Span<uint8_t> assetData, Span<std::string_view> references, Vector<std::string>& outFiles)
+    {
+        std::string_view file = ctxt.file;
+        const DataBuildOptions& options = ctxt.options;
+
         std::filesystem::path rootDir = options.assetRootDirectory;
         rootDir = std::filesystem::absolute(rootDir);
     
@@ -52,7 +74,7 @@ namespace rn
         buildFilePath = std::filesystem::relative(buildFilePath, rootDir, err);
         if (err)
         {
-            BuildError(file) << "Build file is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
+            BuildError(ctxt) << "Build file is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
             return 1;
         }
         
@@ -71,7 +93,7 @@ namespace rn
 
         if (!outFile)
         {
-            BuildError(file) << "Failed to open file for writing: '" << outAssetFile << "'" << std::endl;
+            BuildError(ctxt) << "Failed to open file for writing: '" << outAssetFile << "'" << std::endl;
             return 1;
         }
 
@@ -79,14 +101,9 @@ namespace rn
         sanitizedRefs.reserve(references.size());
         for (std::string_view ref : references)
         {
-            std::filesystem::path refFilePath = ref;
-            refFilePath = std::filesystem::absolute(refFilePath);
-
-            std::error_code err;
-            refFilePath = std::filesystem::relative(refFilePath, rootDir, err);
-            if (err)
+            std::filesystem::path refFilePath = MakeRootRelativeReferencePath(ctxt, ref);
+            if (refFilePath.empty())
             {
-                BuildError(file) << "Dependent asset \"" << refFilePath << "\" is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
                 return 1;
             }
 
@@ -118,8 +135,11 @@ namespace rn
         return 0;
     }
 
-    int WriteDataToDisk(std::string_view file, std::string_view extension, const DataBuildOptions& options, Span<uint8_t> data, bool writeText, Vector<std::string>& outFiles)
+    int WriteDataToDisk(const DataBuildContext& ctxt, std::string_view extension, Span<uint8_t> data, bool writeText, Vector<std::string>& outFiles)
     {
+        std::string_view file = ctxt.file;
+        const DataBuildOptions& options = ctxt.options;
+
         std::filesystem::path rootDir = options.assetRootDirectory;
         rootDir = std::filesystem::absolute(rootDir);
     
@@ -130,7 +150,7 @@ namespace rn
         buildFilePath = std::filesystem::relative(buildFilePath, rootDir, err);
         if (err)
         {
-            BuildError(file) << "Build file is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
+            BuildError(ctxt) << "Build file is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
             return 1;
         }
         
@@ -150,7 +170,7 @@ namespace rn
 
         if (!outFile)
         {
-            BuildError(file) << "Failed to open file for writing: '" << outAssetFile << "'" << std::endl;
+            BuildError(ctxt) << "Failed to open file for writing: '" << outAssetFile << "'" << std::endl;
             return 1;
         }
 
@@ -172,8 +192,11 @@ namespace rn
         return system_clock::to_time_t(sctp);
     }
 
-    std::filesystem::path MakeDependenciesPath(std::string_view file, const DataBuildOptions& options)
+    std::filesystem::path MakeDependenciesPath(const DataBuildContext& ctxt)
     {
+        std::string_view file = ctxt.file;
+        const DataBuildOptions& options = ctxt.options;
+
         std::filesystem::path rootDir = options.assetRootDirectory;
         rootDir = std::filesystem::absolute(rootDir);
     
@@ -184,7 +207,7 @@ namespace rn
         buildFilePath = std::filesystem::relative(buildFilePath, rootDir, err);
         if (err)
         {
-            BuildError(file) << "Build file is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
+            BuildError(ctxt) << "Build file is not a descendant of the provided root path \"" << rootDir << "\"" << std::endl;
             return "error";
         }
         
@@ -196,9 +219,9 @@ namespace rn
         return std::filesystem::absolute(depFile);
     }
 
-    bool DependenciesChanged(std::string_view file, const DataBuildOptions& options)
+    bool DependenciesChanged(const DataBuildContext& ctxt)
     {
-        std::filesystem::path depFile = MakeDependenciesPath(file, options);
+        std::filesystem::path depFile = MakeDependenciesPath(ctxt);
         if (!std::filesystem::exists(depFile))
         {
             return true;
@@ -235,9 +258,9 @@ namespace rn
         return false;
     }
 
-    void WriteDependenciesFile(std::string_view file, const DataBuildOptions& options, Span<const std::string> dependencies)
+    void WriteDependenciesFile(const DataBuildContext& ctxt, Span<const std::string> dependencies)
     {
-        std::filesystem::path outDepFile = MakeDependenciesPath(file, options);
+        std::filesystem::path outDepFile = MakeDependenciesPath(ctxt);
 
         auto tomlDeps = toml::array();
         for (const std::string& str : dependencies)
@@ -257,7 +280,7 @@ namespace rn
             }
             else
             {
-                BuildWarning(file) << "\"" << depPath << "\" listed as a build dependency, but file doesn't exist. Incremental builds might break!" << std::endl;
+                BuildWarning(ctxt) << "\"" << depPath << "\" listed as a build dependency, but file doesn't exist. Incremental builds might break!" << std::endl;
             }
         }
 
@@ -274,7 +297,7 @@ namespace rn
 
         if (!outFile)
         {
-            BuildError(file) << "Failed to open file for writing: '" << outDepFile << "'" << std::endl;
+            BuildError(ctxt) << "Failed to open file for writing: '" << outDepFile << "'" << std::endl;
             return;
         }
 
@@ -289,14 +312,17 @@ namespace rn
         return;
     }
 
-    int DoBuild(std::string_view file, const DataBuildOptions& options)
+    int DoBuild(const DataBuildContext& ctxt)
     {
+        std::string_view file = ctxt.file;
+        const DataBuildOptions& options = ctxt.options;
+
         int ret = 0;
         if (!file.empty())
         {
-            if (!options.force && !DependenciesChanged(file, options))
+            if (!ctxt.options.force && !DependenciesChanged(ctxt))
             {
-                rn::BuildMessage(file) << "File up to date!" << std::endl;
+                rn::BuildMessage(ctxt) << "File up to date!" << std::endl;
                 return 0;
             }
 
@@ -306,18 +332,18 @@ namespace rn
 
             if (file.ends_with(".usd") || file.ends_with(".usda") || file.ends_with(".usdc"))
             {
-                rn::BuildMessage(file) << "Building USD asset" << std::endl;
-                ret = DoBuildUSD(file, options, dependencies);
+                rn::BuildMessage(ctxt) << "Building USD asset" << std::endl;
+                ret = DoBuildUSD(ctxt, dependencies);
             }
             else if (file.ends_with(".toml"))
             {
-                rn::BuildMessage(file) << "Building TOML asset" << std::endl;
-                ret = DoBuildTOML(file, options, dependencies);
+                rn::BuildMessage(ctxt) << "Building TOML asset" << std::endl;
+                ret = DoBuildTOML(ctxt, dependencies);
             }
 
             if (ret == 0)
             {
-                WriteDependenciesFile(file, options, dependencies);
+                WriteDependenciesFile(ctxt, dependencies);
             }
         }
 

@@ -22,7 +22,7 @@ namespace rn
         }
     };
 
-    bool BuildOmniLightComponent(std::string_view file, const pxr::RnOmniLightComponentAPI& usdLight, BumpAllocator& blobAllocator, render::schema::OmniLight& outLight)
+    bool BuildOmniLightComponent(const DataBuildContext& ctxt, const pxr::RnOmniLightComponentAPI& usdLight, BumpAllocator& blobAllocator, Vector<std::string>& outReferences, render::schema::OmniLight& outLight)
     {
         pxr::SdfPathVector sphereLightPaths = ResolveRelationTargets(usdLight.GetSourceRel());
         pxr::UsdLuxSphereLight sphereLight(usdLight.GetPrim().GetStage()->GetPrimAtPath(sphereLightPaths[0]));
@@ -51,7 +51,7 @@ namespace rn
         RegisterLightComponents()
         {
             const ComponentHandler handlers[] = {
-                MakeHasAPIHandler<pxr::RnOmniLightComponentAPI, render::schema::OmniLight, BuildOmniLightComponent>(),
+                MakeHasAPIHandler<BuildOmniLightComponent>(),
             };
 
             for (const ComponentHandler& handler : handlers)

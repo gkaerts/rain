@@ -46,7 +46,7 @@ namespace rn
         return validFormat;
     }
 
-    bool IsValidImageFileFormat(std::string_view file, const pxr::UsdAttribute& attr)
+    bool IsValidImageFileFormat(const DataBuildContext& ctxt, const pxr::UsdAttribute& attr)
     {
         auto str = Value<pxr::SdfAssetPath>(attr);
         return IsValidImageFileFormat(str.GetAssetPath());
@@ -77,7 +77,7 @@ namespace rn
         return validUsage;
     }
 
-    bool IsValidUsageValue(std::string_view file, const pxr::UsdAttribute& attr)
+    bool IsValidUsageValue(const DataBuildContext& ctxt, const pxr::UsdAttribute& attr)
     {
         auto str = Value<pxr::TfToken>(attr);
         return IsValidUsageValue(str.GetString());
@@ -107,9 +107,9 @@ namespace rn
         },
     };
 
-    int CompressAndBuildAsset(std::string_view file, const DataBuildOptions& options, const Texture& inputs, Vector<std::string>& outFiles)
+    int CompressAndBuildAsset(const DataBuildContext& ctxt, const Texture& inputs, Vector<std::string>& outFiles)
     {
-        std::filesystem::path buildFilePath = file;
+        std::filesystem::path buildFilePath = ctxt.file;
         std::filesystem::path relBuildFileDirectory = buildFilePath.relative_path().parent_path();
         std::filesystem::path sourceImagePath = relBuildFileDirectory / inputs.sourceImage;
         outFiles.push_back(sourceImagePath.string());
@@ -117,7 +117,7 @@ namespace rn
         basisu::image img;
         if (!basisu::load_image(sourceImagePath.string(), img))
         {
-            BuildError(file) << "Failed to load source image: '" << sourceImagePath << "'" << std::endl;
+            BuildError(ctxt) << "Failed to load source image: '" << sourceImagePath << "'" << std::endl;
             return 1;
         }
 
@@ -192,13 +192,13 @@ namespace rn
         basisu::basis_compressor compressor;
         if (!compressor.init(params))
         {
-            BuildError(file) << "Failed to initialize basis compressor" << std::endl;
+            BuildError(ctxt) << "Failed to initialize basis compressor" << std::endl;
             return 1;
         }
 
         if(compressor.process() != basisu::basis_compressor::cECSuccess)
         {
-            BuildError(file) << "Failed to compress basis data" << std::endl;
+            BuildError(ctxt) << "Failed to compress basis data" << std::endl;
             return 1;
         }
         
@@ -216,12 +216,12 @@ namespace rn
         Span<uint8_t> outData = { static_cast<uint8_t*>(ScopedAlloc(serializedSize, CACHE_LINE_TARGET_SIZE)), serializedSize };
         rn::Serialize<schema::Texture>(outData, outTexture);
 
-        return WriteAssetToDisk(file, ".texture", options, outData, {}, outFiles);
+        return WriteAssetToDisk(ctxt, ".texture", outData, {}, outFiles);
     }
 
-    int ProcessUsdTexture(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
+    int ProcessUsdTexture(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
     {
-        if (!ValidatePrim(file, prim, TEXTURE_PRIM_SCHEMA))
+        if (!ValidatePrim(ctxt, prim, TEXTURE_PRIM_SCHEMA))
         {
             return false;
         }
@@ -232,6 +232,6 @@ namespace rn
             .usage = UsageFromString(Value<pxr::TfToken>(texturePrim.GetUsageAttr()).GetString())
         };
 
-        return CompressAndBuildAsset(file, options, inputs, outFiles);
+        return CompressAndBuildAsset(ctxt, inputs, outFiles);
     }
 }

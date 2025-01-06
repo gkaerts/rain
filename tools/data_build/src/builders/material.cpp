@@ -62,12 +62,12 @@ namespace rn
         }
     }; 
 
-    int ProcessUsdMaterial(std::string_view file, const DataBuildOptions& options, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
+    int ProcessUsdMaterial(const DataBuildContext& ctxt, const pxr::UsdPrim& prim, Vector<std::string>& outFiles)
     {
         MemoryScope SCOPE;
         data::schema::Material material{};
 
-        if (!ValidatePrim(file, prim, MATERIAL_PRIM_SCHEMA))
+        if (!ValidatePrim(ctxt, prim, MATERIAL_PRIM_SCHEMA))
         {
             return false;
         }
@@ -82,7 +82,7 @@ namespace rn
         pxr::RnRainMaterialAPI matAPI = pxr::RnRainMaterialAPI(prim);
 
         ScopedVector<std::string_view> references;
-        std::string shaderPath = MakeAssetReferencePath(file,
+        std::string shaderPath = MakeAssetReferencePath(ctxt,
                 Value<pxr::SdfAssetPath>(matAPI.GetShaderAttr()), 
                 "material_shader").string();
 
@@ -156,14 +156,19 @@ namespace rn
                 pxr::SdfPathVector valuePaths = ResolveRelationTargets(param.GetValueRel());
                 if (valuePaths.empty())
                 {
-                    BuildError(file) << "No texture asset specified for texture material parameter." << std::endl;
+                    BuildError(ctxt) << "No texture asset specified for texture material parameter." << std::endl;
                     return false;
                 }
 
                 pxr::UsdPrim texturePrim = stage->GetPrimAtPath(valuePaths[0]);
                 pxr::VtValue assetId = texturePrim.GetAssetInfo()["identifier"];
+                if (!assetId.IsHolding<pxr::SdfAssetPath>())
+                {
+                    BuildError(ctxt) << "Material texture not pointing to a valid asset." << std::endl;
+                    return false;
+                }
 
-                std::filesystem::path texturePath = MakeAssetReferencePath(file,
+                std::filesystem::path texturePath = MakeAssetReferencePath(ctxt,
                     assetId.Get<pxr::SdfAssetPath>(), 
                     "texture");
 
@@ -186,6 +191,6 @@ namespace rn
         Span<uint8_t> assetData = { static_cast<uint8_t*>(ScopedAlloc(outSize, CACHE_LINE_TARGET_SIZE)), outSize };
         rn::Serialize(assetData, material);
 
-        return WriteAssetToDisk(file, ".material", options, assetData, references, outFiles);
+        return WriteAssetToDisk(ctxt, ".material", assetData, references, outFiles);
     }
 }
